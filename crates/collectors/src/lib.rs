@@ -229,9 +229,21 @@ impl Collector {
                 .await?;
             let expected =
                 stories_normalize::canonical_url(article_url).map_err(|_| CollectorError::Parse)?;
-            Ok(batch.articles.into_iter().find(|a| {
+            let captured = batch.articles.into_iter().find(|a| {
                 stories_normalize::canonical_url(&a.url).is_ok_and(|url| url == expected)
-            }))
+            });
+            self.cpu_work(move || {
+                captured
+                    .map(|mut article| {
+                        article.title = stories_normalize::plain_text(&article.title, 512)
+                            .map_err(|_| CollectorError::Parse)?;
+                        article.excerpt = stories_normalize::plain_text(&article.excerpt, 2000)
+                            .map_err(|_| CollectorError::Parse)?;
+                        Ok(article)
+                    })
+                    .transpose()
+            })
+            .await
         }
     }
 }

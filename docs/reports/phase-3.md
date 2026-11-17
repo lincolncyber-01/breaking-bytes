@@ -45,7 +45,8 @@ As evidências reais ficam em `docs/reports/evidence/phase-3-*`.
 N1 requer fonte primária/peso 5, material e data confirmados e atuais. N2 requer
 domínios registráveis, origens editoriais e artigos diferentes, sem trechos
 idênticos. Sinais, rumores, datas desconhecidas e fontes insuficientes ficam N3.
-A nova leitura da página/API confirma o conteúdo; updated/lastmod não renovam a
+A nova leitura da página/API confirma o conteúdo; trechos de API recebem a
+mesma sanitização e limite de 2000 caracteres usados na coleta; updated/lastmod não renovam a
 data original. A observação expira em max_age_hours ou avança quando confirmada.
 
 O cliente Anthropic usa o contrato documentado, endpoint fixo, chave em header
@@ -80,9 +81,9 @@ Os logs integrais registram os comandos e resultados locais:
 cargo fmt --check
 exit_code: 0
 cargo clippy --workspace --all-targets --locked -- -D warnings
-Finished `dev` profile [unoptimized] target(s) in 0.64s
+Finished `dev` profile [unoptimized] target(s) in 3.38s
 cargo nextest run --workspace --locked --test-threads 1
-Summary [  34.154s] 46 tests run: 46 passed, 0 skipped
+Summary [  31.012s] 46 tests run: 46 passed, 0 skipped
 cargo llvm-cov --package stories-core --package stories-normalize --package stories-cluster --package stories-verify --package stories-editorial --locked --fail-under-lines 80 --summary-only
 TOTAL: 760 linhas, 68 não cobertas, 91.05%
 ```
@@ -101,7 +102,8 @@ Foram exercitados:
   cópias repetidas e fronteira de repositórios GitHub.
 - Contratos Messages API, header de versão, schema, ausência de ferramentas,
   separação entre sistema e artigo, 429/Retry-After, timeout, recusa, tamanho,
-  truncamento e tentativa de ação na resposta. Corpo/chave não aparecem no erro.
+  truncamento e tentativa de ação na resposta. Releases longos confirmados pela
+  API ficam limitados a 2000 caracteres e têm scripts removidos. Corpo/chave não aparecem no erro.
 - Estilo, atribuição, número/versão, moeda/data/nome novo, JSON com campos extras,
   afirmações omitidas, citação inventada e falso apoio na auditoria simulada.
 - Fluxo até CHECKED/outbox no Postgres, duas reescritas e rejeição na terceira

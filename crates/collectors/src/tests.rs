@@ -26,6 +26,19 @@ async fn confirms_publication_date_from_original_article_not_updated_feed()
         .mount(&server)
         .await;
     let collector = Collector::new(http::HttpClient::local(&server.uri(), 2097152)?, 20, 6)?;
+    let release_url = "https://github.com/rust-lang/rust/releases/tag/1.100";
+    Mock::given(path("/github")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([{"html_url":release_url,"name":"Rust 1.100","tag_name":"1.100","body":format!("<script>Segredo</script>{}","Correções para Rust. ".repeat(1000)),"published_at":Utc::now()-chrono::Duration::minutes(1),"draft":false}]))).mount(&server).await;
+    let release = collector
+        .confirm(
+            SourceKind::Github,
+            &format!("{}/github", server.uri()),
+            release_url,
+            Utc::now(),
+        )
+        .await?
+        .ok_or("release ausente")?;
+    assert_eq!(release.excerpt.chars().count(), 2000);
+    assert!(!release.excerpt.contains("Segredo"));
     let article = collector
         .confirm(
             SourceKind::Rss,
