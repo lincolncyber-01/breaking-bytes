@@ -1,6 +1,7 @@
 # Coleta é ativada por collection.enabled; somente metadados e trechos limitados.
 [[sources]]
 name = 'Rust Blog'
+origin_group = 'Rust Project'
 layer = 'A'
 kind = 'rss'
 url = 'https://blog.rust-lang.org/feed.xml'
@@ -10,6 +11,7 @@ enabled = true
 
 [[sources]]
 name = 'Rust Releases'
+origin_group = 'Rust Project'
 layer = 'A'
 kind = 'github'
 url = 'https://api.github.com/repos/rust-lang/rust/releases?per_page=20'

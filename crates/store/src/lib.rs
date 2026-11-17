@@ -12,7 +12,9 @@ use thiserror::Error;
 use uuid::Uuid;
 
 mod collection;
+mod editorial;
 pub use collection::{CollectionStats, SourceState};
+pub use editorial::{EditorialContext, EditorialOutcome, EditorialStep};
 
 static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("../../migrations");
 
@@ -254,11 +256,25 @@ impl Store {
         failure: JobFailure,
         max_attempts: i32,
     ) -> Result<(), StoreError> {
+        self.retry_delayed(job, failure, max_attempts, Duration::ZERO)
+            .await
+    }
+
+    pub async fn retry_delayed(
+        &self,
+        job: &Job,
+        failure: JobFailure,
+        max_attempts: i32,
+        minimum_delay: Duration,
+    ) -> Result<(), StoreError> {
         if !(1..=20).contains(&max_attempts) {
             return Err(StoreError::InvalidOptions);
         }
         let dead = job.attempts >= max_attempts || matches!(failure, JobFailure::Permanent);
-        let delay = retry_delay(job.attempts, job.lease_token.as_u128() as u64);
+        let delay = retry_delay(job.attempts, job.lease_token.as_u128() as u64).max(
+            i64::try_from(minimum_delay.as_secs().min(86_400))
+                .map_err(|_| StoreError::InvalidOptions)?,
+        );
         let affected = sqlx::query("UPDATE jobs SET lease_until = NULL, lease_token = NULL, locked_at = NULL, run_at = now() + make_interval(secs => $3::double precision), last_error_code = $4, dead_at = CASE WHEN $5 THEN now() ELSE NULL END WHERE id = $1 AND lease_token = $2 AND lease_until > now() AND done_at IS NULL AND dead_at IS NULL")
             .bind(job.id).bind(job.lease_token).bind(delay).bind(failure.code()).bind(dead)
             .execute(&self.pool).await.map_err(database_error)?.rows_affected();

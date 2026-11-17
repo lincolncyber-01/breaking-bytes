@@ -192,6 +192,60 @@ impl Collector {
             not_modified: false,
         })
     }
+
+    /// Confirma data de publicação e material na origem antes de liberar a redação.
+    pub async fn confirm(
+        &self,
+        kind: SourceKind,
+        source_url: &str,
+        article_url: &str,
+        now: DateTime<Utc>,
+    ) -> Result<Option<CapturedArticle>, CollectorError> {
+        if kind == SourceKind::Hackernews {
+            return Ok(None);
+        }
+        if matches!(kind, SourceKind::Rss | SourceKind::Sitemap) {
+            let page = self.http.get(article_url, &Validators::default()).await?;
+            if page.status != 200 {
+                return Ok(None);
+            }
+            let captured = self
+                .cpu_work(move || {
+                    let text =
+                        std::str::from_utf8(&page.body).map_err(|_| CollectorError::Parse)?;
+                    stories_normalize::article_evidence(&page.url, text)
+                        .map_err(|_| CollectorError::Parse)
+                })
+                .await?;
+            let expected =
+                stories_normalize::canonical_url(article_url).map_err(|_| CollectorError::Parse)?;
+            if captured.url != expected.as_str() {
+                return Ok(None);
+            }
+            Ok(Some(captured))
+        } else {
+            let batch = self
+                .collect(kind, source_url, &Validators::default(), now)
+                .await?;
+            let expected =
+                stories_normalize::canonical_url(article_url).map_err(|_| CollectorError::Parse)?;
+            let captured = batch.articles.into_iter().find(|a| {
+                stories_normalize::canonical_url(&a.url).is_ok_and(|url| url == expected)
+            });
+            self.cpu_work(move || {
+                captured
+                    .map(|mut article| {
+                        article.title = stories_normalize::plain_text(&article.title, 512)
+                            .map_err(|_| CollectorError::Parse)?;
+                        article.excerpt = stories_normalize::plain_text(&article.excerpt, 2000)
+                            .map_err(|_| CollectorError::Parse)?;
+                        Ok(article)
+                    })
+                    .transpose()
+            })
+            .await
+        }
+    }
 }
 
 #[derive(Debug, Error)]

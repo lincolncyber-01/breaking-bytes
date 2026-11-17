@@ -38,6 +38,7 @@ bucket = 'stories-img'
 ttl_minutes = 60
 
 [llm]
+enabled = false
 # Modelo escolhido por ambiente; confirmar disponibilidade com a chave no deploy.
 model = 'claude-haiku-5-5'
 timeout_s = 15

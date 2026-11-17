@@ -39,6 +39,20 @@ pub async fn run(settings: Settings, store: Store, mut stop: watch::Receiver<boo
         settings.collection.max_response_bytes,
         settings.collection.per_host,
     )?;
+    run_with_http(settings, store, http, stop).await
+}
+
+pub async fn run_with_http(
+    settings: Settings,
+    store: Store,
+    http: HttpClient,
+    mut stop: watch::Receiver<bool>,
+) -> Result<()> {
+    if !settings.collection.enabled {
+        wait_for_stop(&mut stop).await;
+        return Ok(());
+    }
+    http.ensure_news_egress()?;
     let collector = Collector::new(
         http,
         settings.collection.max_items,
