@@ -64,3 +64,29 @@ fn unknown_fields_and_short_admin_tokens_fail() -> Result<(), Box<dyn std::error
     assert!(settings()?.resolve_with(|_| Some("curto".into())).is_err());
     Ok(())
 }
+
+#[test]
+fn editorial_requires_key_even_in_dry_run_and_valid_origin_groups()
+-> Result<(), Box<dyn std::error::Error>> {
+    let mut config = settings()?;
+    config.llm.enabled = true;
+    let base = |name: &str| match name {
+        "DATABASE_URL" => Some("postgres://localhost/stories".into()),
+        "ADMIN_TOKEN" => Some("a".repeat(32)),
+        _ => None,
+    };
+    assert!(config.resolve_with(base).is_err());
+    let secrets = config.resolve_with(|name| {
+        if name == "LLM_API_KEY" {
+            Some("fixture-only-key".into())
+        } else {
+            base(name)
+        }
+    })?;
+    assert!(!format!("{secrets:?}").contains("fixture-only-key"));
+    config.sources[0].origin_group = Some(" ".into());
+    assert!(config.validate().is_err());
+    config.sources[0].origin_group = Some("Rust Foundation".into());
+    config.validate()?;
+    Ok(())
+}

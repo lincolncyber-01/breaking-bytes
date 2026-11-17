@@ -101,6 +101,8 @@ pub struct Storage {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Llm {
+    #[serde(default)]
+    pub enabled: bool,
     pub model: String,
     pub timeout_s: u64,
     pub api_key: String,
@@ -109,6 +111,8 @@ pub struct Llm {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Source {
+    #[serde(default)]
+    pub origin_group: Option<String>,
     pub name: String,
     pub layer: String,
     pub kind: String,
@@ -221,6 +225,14 @@ impl Settings {
         }
         let mut names = HashSet::new();
         for source in &self.sources {
+            if source.name.chars().count() > 80
+                || source.name.chars().any(char::is_control)
+                || source.origin_group.as_ref().is_some_and(|v| {
+                    v.trim().is_empty() || v.len() > 80 || v.chars().any(char::is_control)
+                })
+            {
+                return Err(ConfigError::Invalid("identidade editorial da fonte"));
+            }
             let parsed =
                 url::Url::parse(&source.url).map_err(|_| ConfigError::Invalid("sources.url"))?;
             if parsed.host_str().is_none()
@@ -286,7 +298,11 @@ impl Settings {
             admin_token,
             instagram_token: optional(&self.instagram.access_token)?,
             instagram_user_id: optional(&self.instagram.user_id)?,
-            llm_key: optional(&self.llm.api_key)?,
+            llm_key: if self.llm.enabled {
+                Some(required(&self.llm.api_key)?)
+            } else {
+                optional(&self.llm.api_key)?
+            },
         })
     }
 }

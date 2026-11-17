@@ -156,6 +156,21 @@ pub fn html_metadata(base: &Url, body: &str) -> Result<CapturedArticle, Normaliz
     })
 }
 
+/// Extrai somente o corpo editorial; menus e scripts não sustentam afirmações.
+pub fn article_evidence(base: &Url, body: &str) -> Result<CapturedArticle, NormalizeError> {
+    let mut article = html_metadata(base, body)?;
+    let document = Html::parse_document(body);
+    for query in ["article", "main"] {
+        if let Some(node) = document.select(&selector(query)?).next() {
+            article.excerpt = plain_text(&node.html(), 2000)?;
+            break;
+        }
+    }
+    article.title = plain_text(&article.title, 512)?;
+    article.excerpt = plain_text(&article.excerpt, 2000)?;
+    Ok(article)
+}
+
 fn selector(value: &str) -> Result<Selector, NormalizeError> {
     Selector::parse(value).map_err(|_| NormalizeError::Selector)
 }

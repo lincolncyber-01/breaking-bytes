@@ -34,6 +34,7 @@ struct HostState {
 
 #[derive(Clone)]
 pub struct HttpClient {
+    news_blocked: bool,
     client: Client,
     hosts: Arc<Mutex<HashMap<String, HostState>>>,
     max_bytes: usize,
@@ -45,6 +46,20 @@ pub struct HttpClient {
 }
 
 impl HttpClient {
+    /// Permite reutilizar o pool em APIs de destino fixo, sem liberar URLs de notícias.
+    pub fn shared(user_agent: &str, max_bytes: usize, per_host: usize) -> Result<Self, HttpError> {
+        Self::build(user_agent, max_bytes, per_host)
+    }
+    pub fn trusted_api_client(&self) -> Client {
+        self.client.clone()
+    }
+    pub fn ensure_news_egress(&self) -> Result<(), HttpError> {
+        if self.news_blocked {
+            Err(HttpError::ProxyConfiguration)
+        } else {
+            Ok(())
+        }
+    }
     /// Proxy resolve nomes fora do processo e impossibilita esta garantia de pinning.
     pub fn new(user_agent: &str, max_bytes: usize, per_host: usize) -> Result<Self, HttpError> {
         if [
@@ -82,6 +97,16 @@ impl HttpClient {
             .build()
             .map_err(|_| HttpError::Network)?;
         Ok(Self {
+            news_blocked: [
+                "HTTP_PROXY",
+                "HTTPS_PROXY",
+                "ALL_PROXY",
+                "http_proxy",
+                "https_proxy",
+                "all_proxy",
+            ]
+            .iter()
+            .any(|key| std::env::var_os(key).is_some_and(|v| !v.is_empty())),
             client,
             hosts: Arc::new(Mutex::new(HashMap::new())),
             max_bytes,
@@ -96,6 +121,7 @@ impl HttpClient {
     #[cfg(test)]
     pub(crate) fn local(origin: &str, max_bytes: usize) -> Result<Self, HttpError> {
         let mut value = Self::build("BreakingBytesTests", max_bytes, 2)?;
+        value.news_blocked = false;
         value.client = Client::builder()
             .no_proxy()
             .timeout(Duration::from_secs(1))
@@ -136,6 +162,7 @@ impl HttpClient {
     }
 
     pub async fn get(&self, url: &str, validators: &Validators) -> Result<Response, HttpError> {
+        self.ensure_news_egress()?;
         let url = Url::parse(url).map_err(|_| HttpError::Url)?;
         self.validate(&url)?;
         self.robots(&url).await?;

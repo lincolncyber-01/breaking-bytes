@@ -54,7 +54,7 @@ O validador HTTP só muda após commit dos artigos e jobs. Uma falha no lote con
 o cursor e a próxima tentativa usa o estado durável anterior.
 
 Inspecione artigos, article_sightings, event_articles e audit_log. Jobs verify
-aguardam a fase 3 e não devem ser consumidos por um trabalhador genérico.
+são consumidos pelo worker editorial somente quando llm.enabled=true.
 Para o aceite de 24 horas, retenha logs completos, datas inicial/final, contagens
 de artigos e eventos e amostras revisadas de agrupamento. A restrição UNIQUE de
 URL não comprova ausência de duplicatas semânticas. Nenhum Story será publicado.
@@ -69,3 +69,46 @@ antes de integrar à principal. A fundação está integrada à main. A captura 
 Proteção de branch, CI remoto, credenciais externas, backups, alertas, publicação
 de teste, caos, snapshots, benchmarks e canário ainda precisam dos marcos das
 fases seguintes. Esta fundação não deve ser anunciada como pronta para produção.
+
+
+## Verificação e redação
+
+Aplique a migration 0003 antes de atualizar a aplicação. Defina LLM_API_KEY
+somente no ambiente e habilite STORIES__LLM__ENABLED=true. Mantenha dry_run=true.
+O estágio precisa ler fontes pela rota de rede validada; não desative proxies da
+Cloud para forçar a execução. Sem chave o serviço falha na configuração.
+
+Cadastre origin_group para cada fonte B/D usada em N2. Use o mesmo valor para
+sites que republicam a mesma agência ou compartilham origem editorial. A
+independência editorial não é inferida de nomes de domínio. Fontes removidas ou
+desabilitadas no arquivo deixam de participar após a sincronização no startup.
+
+O status administrativo expõe editorial_enabled. Inspecione events.state, level,
+reason, editorial_attempts, content_revision e verified_revision. As evidências
+confirmadas ficam em assessment_json; draft_json e factcheck_json conservam as
+saídas aprovadas. Esses campos contêm conteúdo editorial, portanto controle o
+acesso ao banco e aos backups. Os logs não carregam matérias, prompts ou corpos
+HTTP. Auditoria registra códigos, IDs e revisões.
+
+N3 retorna em 60 segundos e expira em max_age_hours. Falhas de fonte podem
+manter uma notícia válida em observação: confira robots, canonical e o metadado
+article:published_time. Não substitua a data por updated/lastmod para liberar um
+item. GitHub/SEC/Statuspage exigem nova confirmação pela API de origem.
+
+429 e falhas transitórias preservam o estado e reagendam o job. Não reinicie as
+reescritas por tentativa HTTP. Após duas reescritas, recusa do modelo ou falha
+permanente, confira a razão persistida antes de investigar. Jobs esgotados por
+quedas repetidas ficam em dead letter e exigem inspeção, como os demais jobs.
+Nunca reutilize token de lease ou promova o estado manualmente.
+
+Use --evaluate-editorial conforme o README para gravar a concordância sobre
+candidatos rotulados. Erro do provedor conta como erro de avaliação, separado de
+rejeição factual. O relatório não inclui chave, corpo de resposta ou texto das
+matérias. Os exemplos versionados são sintéticos; o aceite exige corpus real,
+revisão humana e inspeção das redações produzidas pelo pipeline. Meta inicial:
+zero falsas aceitações e 100% de concordância no corpus aprovado pelo operador.
+O blueprint não especifica um percentual; essa suposição está no ADR-007.
+
+CHECKED cria trabalho render com revisão. Ainda não há consumo desses trabalhos
+ou publicação. Quando renderização for implementada, conferir estado, revisão e
+pausa novamente; trabalhos de eventos SUPERSEDED não podem produzir Stories.

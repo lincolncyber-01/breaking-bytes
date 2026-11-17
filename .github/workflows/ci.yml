@@ -34,4 +34,4 @@ jobs:
       - uses: actions/checkout@v4
       - run: rustup toolchain install 1.100.0 --profile minimal --component llvm-tools-preview
       - run: cargo install cargo-llvm-cov --version 0.9.1 --locked
-      - run: cargo llvm-cov --package stories-core --package stories-normalize --package stories-cluster --locked --fail-under-lines 80 --lcov --output-path lcov.info
+      - run: cargo llvm-cov --package stories-core --package stories-normalize --package stories-cluster --package stories-verify --package stories-editorial --locked --fail-under-lines 80 --lcov --output-path lcov.info

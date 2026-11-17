@@ -1,6 +1,6 @@
 # Matriz de rastreabilidade incremental
 
-Estado em 16/11/2026. Esta matriz registra o que existe nas fases 1 e 2.
+Estado em 16/11/2026. Esta matriz registra o que existe nas fases 1 a 3.
 
 | Requisito do blueprint | Implementação | Verificação / estado |
 | --- | --- | --- |
@@ -18,13 +18,15 @@ Estado em 16/11/2026. Esta matriz registra o que existe nas fases 1 e 2.
 | Admin protegida e kill switch | /admin/status, /admin/pause | Autenticação, corpo limitado e pausa persistida |
 | Shutdown gracioso | app::main | Processo recebe SIGTERM e encerra com sucesso |
 | Formatação, Clippy, nextest | CI e comandos locais | Resultados em reports/phase-1.md |
-| Cobertura de domínio >=80% | cargo-llvm-cov | Core, normalize e cluster: 94,83% de linhas |
-| CI remoto verde | .github/workflows/ci.yml | Fase 1 aprovada; fase 2 terá nova execução |
+| Cobertura de domínio >=80% | cargo-llvm-cov | Core, normalize, cluster, verify e editorial: 91,05% de linhas na fase 3 |
+| CI remoto verde | .github/workflows/ci.yml | Fases 1 e 2 aprovadas; fase 3 nos Checks da PR |
 | Container mínimo e não root | deploy/Dockerfile, Compose | Build da fase 1 aprovado no CI |
 | Feeds, SSRF, parsers, clusters | crates/collectors, normalize, cluster; store/collection | Contratos, propriedades e Postgres; embeddings/WebSub pendentes |
 | Coleta real por 24 horas | Fase 2 | Não executada |
-| Verificação N1/N2/N3 e LLM | Fase 3 | Não implementado |
-| Fidelidade e prompt injection | Fase 3 | Não implementado |
+| Verificação N1/N2/N3 | crates/verify, collectors::confirm, store/editorial | Datas, origens, sinais e promoção N3 em testes/propriedades/Postgres |
+| Redação e contrato LLM | crates/editorial, app/editorial | Schema, prompts separados e contratos HTTP simulados |
+| Reescritas e outbox de render | migration 0003, store/editorial | Limite de duas, fencing, versões concorrentes e CHECKED+outbox atômicos |
+| Fidelidade e prompt injection | Editorial, fixtures/evaluation.json, --evaluate-editorial | Rejeições locais e separação de prompts testadas; fidelidade real e revisão humana pendentes |
 | Imagens, Inter, render, snapshots | Fase 4 | Não implementado |
 | Benchmark de render e memória | Fases 4 e 6 | Não executado |
 | R2, Meta, reconciliação e caos | Fase 5 | Não implementado; ADR-002 registra limites |

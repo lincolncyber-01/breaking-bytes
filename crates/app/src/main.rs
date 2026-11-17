@@ -29,6 +29,23 @@ fn main() -> Result<()> {
     if std::env::args().any(|arg| arg == "--healthcheck") {
         return healthcheck(settings.admin.bind);
     }
+    if let Some(position) = std::env::args().position(|arg| arg == "--evaluate-editorial") {
+        let args = std::env::args().collect::<Vec<_>>();
+        let input = args
+            .get(position + 1)
+            .context("informe corpus JSON e caminho do relatório")?;
+        let output = args
+            .get(position + 2)
+            .context("informe caminho do relatório")?;
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()?;
+        return runtime.block_on(stories_app::evaluation::run(
+            &settings,
+            Path::new(input),
+            Path::new(output),
+        ));
+    }
     let secrets = settings.resolve_secrets()?;
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -60,13 +77,14 @@ fn main() -> Result<()> {
             admin_token: secrets.admin_token,
             dry_run: settings.instagram.dry_run,
             collection_enabled: settings.collection.enabled,
+            editorial_enabled: settings.llm.enabled,
         });
         let (stop_sender,mut server_stop)=tokio::sync::watch::channel(false);
-        let mut pipeline=tokio::spawn(stories_app::collection::run(settings.clone(),store.clone(),server_stop.clone()));
+        let mut pipeline=tokio::spawn(stories_app::pipeline::run(settings.clone(),store.clone(),secrets.llm_key,server_stop.clone()));
         let signal_sender=stop_sender.clone();
         let signal=tokio::spawn(async move{shutdown().await;let _=signal_sender.send(true);});
         tracing::info!(bind = %settings.admin.bind, dry_run = settings.instagram.dry_run,
-            phase = 2, collection_enabled=settings.collection.enabled,"serviço iniciado; publicação ainda indisponível");
+            phase = 3, collection_enabled=settings.collection.enabled, editorial_enabled=settings.llm.enabled,"serviço iniciado; publicação ainda indisponível");
         let server=axum::serve(listener, app).with_graceful_shutdown(async move {
             stories_app::collection::wait_for_stop(&mut server_stop).await;
         });
