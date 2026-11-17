@@ -37,7 +37,12 @@ pub async fn run_once() -> Result<()> {
             )?)?,
         }),
     };
-    publisher.preflight(&store).await?;
+    // A fixture começa com contêiner pronto; nenhum upload ou health check do R2 é necessário.
+    let remote = publisher
+        .remote
+        .as_ref()
+        .context("cliente de contrato ausente")?;
+    remote.token.check(&store, &publisher.account).await?;
     let lease = Duration::from_secs(30);
     let job = if let Some(job) = store.claim_kind(lease, 5, "reconcile").await? {
         job
