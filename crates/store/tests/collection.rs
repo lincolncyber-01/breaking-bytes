@@ -191,12 +191,28 @@ async fn atomic_ingest_concurrent_clustering_updates_and_burst()
         .await?;
     assert_eq!(again.duplicates, 200);
     let mut processed = 0;
+    let mut cluster_times = Vec::with_capacity(200);
     while let Some(job) = store.claim_kind(lease, 5, "cluster").await? {
+        let cluster_started = std::time::Instant::now();
         assert_eq!(store.cluster_job(&job, 0.86, 6).await?, event);
+        cluster_times.push(cluster_started.elapsed().as_secs_f64() * 1000.0);
         processed += 1;
     }
     assert_eq!(processed, 200);
-    assert!(started.elapsed() < Duration::from_secs(60));
+    let burst_seconds = started.elapsed().as_secs_f64();
+    assert!(burst_seconds < 60.0);
+    cluster_times.sort_by(f64::total_cmp);
+    let p95 = cluster_times[189];
+    let report = serde_json::json!({"scope":"200 artigos normalizados: ingestão, deduplicação e clusterização transacional com Postgres real; sem feeds públicos ou LLM","profile":if cfg!(debug_assertions){"debug"}else{"release"},"items":processed,"burst_seconds":burst_seconds,"cluster_p50_ms":cluster_times[99],"cluster_p95_ms":p95,"cluster_max_ms":cluster_times[199],"target_cluster_p95_ms":50,"passed":p95<50.0});
+    if let Some(path) = std::env::var_os("STORIES_CLUSTER_BENCHMARK") {
+        let path = std::path::Path::new(&path);
+        if let Some(parent) = path.parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+        tokio::fs::write(path, serde_json::to_vec_pretty(&report)?).await?;
+        assert!(p95 < 50.0, "clusterização excedeu p95 de 50 ms");
+    }
+    println!("{report}");
     let count: i64 = sqlx::query_scalar("SELECT count(*) FROM events")
         .fetch_one(store.pool())
         .await?;

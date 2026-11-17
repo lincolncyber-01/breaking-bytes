@@ -182,6 +182,23 @@ async fn exercise_binary(
         }
     })
     .await??;
+    if let Some(destination) = std::env::var_os("STORIES_IDLE_MEMORY_BENCHMARK") {
+        sleep(Duration::from_secs(1)).await;
+        let status = tokio::fs::read_to_string(format!("/proc/{pid}/status")).await?;
+        let value = |key: &str| {
+            status.lines().find_map(|line| {
+                line.strip_prefix(key)
+                    .and_then(|s| s.split_whitespace().next())
+                    .and_then(|s| s.parse::<u64>().ok())
+            })
+        };
+        let report = serde_json::json!({"scope":"Binário real ocioso após readiness em dry_run, com renderizador e observabilidade; sem carga editorial ou APIs reais","profile":if cfg!(debug_assertions){"debug"}else{"release"},"rss_kib":value("VmRSS:"),"peak_rss_kib":value("VmHWM:")});
+        let destination = std::path::Path::new(&destination);
+        if let Some(parent) = destination.parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+        tokio::fs::write(destination, serde_json::to_vec_pretty(&report)?).await?;
+    }
     let killed = timeout(
         Duration::from_secs(2),
         Command::new("kill")

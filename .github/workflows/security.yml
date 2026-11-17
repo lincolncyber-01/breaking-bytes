@@ -21,7 +21,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - run: rustup toolchain install 1.100.0 --profile minimal
+      - run: cargo fetch --locked
       - run: cargo install cargo-deny --version 0.21.0 --locked
+      - run: python3 -m unittest discover -s tools -p test_security_exceptions.py -v
+      - run: python3 tools/check_security_exceptions.py
       - run: cargo deny check
       - run: cargo install cargo-audit --version 0.23.0 --locked
       - run: cargo audit --deny warnings
@@ -79,8 +82,14 @@ jobs:
       - run: docker build -f deploy/Dockerfile -t breaking-bytes:security .
       - name: Vulnerabilidades e segredos na imagem de produção
         run: /tmp/trivy image --exit-code 1 --severity HIGH,CRITICAL --scanners vuln,secret --format json --output trivy-app.json breaking-bytes:security
+      - name: Construir e verificar a imagem operacional
+        run: |
+          docker build -f deploy/backup/Dockerfile -t breaking-bytes-backup:security .
+          /tmp/trivy image --exit-code 1 --severity HIGH,CRITICAL --scanners vuln,secret --format json --output trivy-backup.json breaking-bytes-backup:security
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: security-image-report
-          path: trivy-app.json
+          path: |
+            trivy-app.json
+            trivy-backup.json

@@ -480,3 +480,76 @@ async fn api_revisit_keeps_old_release_date_and_late_notice_without_news_age_fil
     );
     Ok(())
 }
+
+/// Mede captura e normalização via HTTP local; não atribui latência simulada à Internet.
+#[tokio::test]
+async fn simulated_detection_benchmark() -> Result<(), Box<dyn std::error::Error>> {
+    let server = MockServer::start().await;
+    Mock::given(path("/robots.txt"))
+        .respond_with(ResponseTemplate::new(200).set_body_string("User-agent: *\nAllow: /\n"))
+        .mount(&server)
+        .await;
+    let now = Utc::now();
+    let items=(0..200).map(|id|format!("<item><title>Rust anuncia versão 1.100</title><link>https://example.com/news/{id}</link><description>Rust publica atualização estável.</description><pubDate>{}</pubDate></item>",now.to_rfc2822())).collect::<String>();
+    let feed = format!(
+        "<rss version=\"2.0\"><channel><title>Contrato</title><link>https://example.com</link><description>Benchmark sintético</description>{items}</channel></rss>"
+    );
+    Mock::given(path("/feed"))
+        .respond_with(ResponseTemplate::new(200).set_body_string(feed))
+        .mount(&server)
+        .await;
+    let collector = Collector::new(http::HttpClient::local(&server.uri(), 2_097_152)?, 200, 6)?;
+    let normalizer = std::sync::Arc::new(
+        tokio::task::spawn_blocking(stories_normalize::Normalizer::new).await??,
+    );
+    let mut times = Vec::with_capacity(50);
+    for _ in 0..50 {
+        let started = std::time::Instant::now();
+        let batch = collector
+            .collect(
+                SourceKind::Rss,
+                &format!("{}/feed", server.uri()),
+                &http::Validators::default(),
+                now,
+            )
+            .await?;
+        assert_eq!(batch.articles.len(), 200);
+        let normalizer = normalizer.clone();
+        let normalized = tokio::task::spawn_blocking(move || {
+            batch
+                .articles
+                .into_iter()
+                .map(|article| normalizer.normalize(article))
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .await??;
+        assert_eq!(normalized.len(), 200);
+        times.push(started.elapsed().as_secs_f64() * 1000.0);
+    }
+    let cold = times[0];
+    times.sort_by(f64::total_cmp);
+    let p95 = times[47];
+    let status = tokio::fs::read_to_string("/proc/self/status").await?;
+    let peak = status
+        .lines()
+        .find_map(|line| {
+            line.strip_prefix("VmHWM:")
+                .and_then(|s| s.split_whitespace().next())
+                .and_then(|s| s.parse::<u64>().ok())
+        })
+        .ok_or("RSS indisponível")?;
+    let report = serde_json::json!({"scope":"Captura RSS por HTTP local, robots, parsing e normalização de 200 itens; sem intervalo de polling, rede pública, banco, LLM ou Meta","profile":if cfg!(debug_assertions){"debug"}else{"release"},"samples":50,"items_per_sample":200,"cold_ms":cold,"capture_normalize_p50_ms":times[24],"capture_normalize_p95_ms":p95,"capture_normalize_max_ms":times[49],"test_process_peak_rss_kib":peak});
+    if let Some(path) = std::env::var_os("STORIES_DETECTION_BENCHMARK") {
+        let path = std::path::Path::new(&path);
+        if let Some(parent) = path.parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+        tokio::fs::write(path, serde_json::to_vec_pretty(&report)?).await?;
+    }
+    println!("{report}");
+    assert!(
+        p95 < 1_000.0,
+        "captura de contrato excedeu um segundo por lote"
+    );
+    Ok(())
+}

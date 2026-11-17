@@ -65,7 +65,7 @@ reapresentar o ambiente dos serviços após cada boot; ausência de variável fa
 fechado e não cria arquivos de segredos.
 
 Ferramentas de segurança: cargo-deny 0.21.0, cargo-audit 0.23.0 e Trivy 0.76.2,
-consultadas nas publicações oficiais. Nenhum advisory é ignorado. Licenças de
+consultadas nas publicações oficiais. Os três avisos informativos de manutenção e a retirada de OpenSSL descobertos pelo scan estão no ADR-017; nenhuma vulnerabilidade é excluída. Licenças de
 crates privados não publicados não são atribuídas automaticamente ao proprietário.
 Fuzz usa nightly fixo somente na ferramenta; o produto compila em Rust estável.
 O fallback hash/entidades continua explícito conforme ADR-005 e a opção permitida
