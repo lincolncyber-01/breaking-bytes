@@ -7,7 +7,7 @@ Implementação incremental: **fases 1 a 4 disponíveis; fase 5 em andamento**.
 O serviço coleta, confirma, redige, checa, renderiza e consome a publicação em
 `dry_run`. O incremento atual adiciona clientes Meta/R2, reservas, barreira de
 publicação e reconciliação conservadora. Há testes com APIs simuladas e Postgres;
-publicação real, renovação de token, correções automáticas e outros portões ainda
+publicação real, rotação externa do token, correções automáticas e outros portões ainda
 estão pendentes. Consulte o [relatório da fase 5](docs/reports/phase-5.md).
 
 ## Ambiente local
@@ -130,3 +130,10 @@ com evidências específicas. Não existe implantação de produção nesta entr
 Leia [operação da publicação](docs/publication.md) e os ADRs 010 e 011. O fluxo
 real só tem readiness após o preflight; isso não representa aceite de produção.
 A fase 5 continua aberta e a configuração padrão mantém `dry_run=true`.
+
+O [monitor de tokens](docs/tokens.md) inspeciona Facebook Login e controla validade
+e renovação documentada de Instagram Login. Datas e permissões de Instagram Login
+partem de recibo de emissão vinculado ao hash; essa origem fica explícita. Tokens
+com valor alterado exigem rotação no ambiente, conforme o ADR-013.
+
+Evidências e pendências do incremento: [relatório de tokens](docs/reports/phase-5-token.md).

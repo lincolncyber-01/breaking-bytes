@@ -129,7 +129,23 @@ impl Graph {
             let response = request.send().await.map_err(|_| PublishError::Transport)?;
             let status = response.status();
             if !status.is_success() {
-                return Err(PublishError::Http(status.as_u16()));
+                if status.as_u16() == 401 {
+                    return Err(PublishError::Authentication);
+                }
+                if status.as_u16() == 403 {
+                    return Err(PublishError::Permission);
+                }
+                let bytes = body(response, MAX_JSON).await?;
+                let value: Option<Value> = serde_json::from_slice(&bytes).ok();
+                let code = value
+                    .as_ref()
+                    .and_then(|v| v.pointer("/error/code"))
+                    .and_then(Value::as_u64);
+                return Err(match code {
+                    Some(102 | 190) => PublishError::Authentication,
+                    Some(10 | 200..=299) => PublishError::Permission,
+                    _ => PublishError::Http(status.as_u16()),
+                });
             }
             serde_json::from_slice(&body(response, MAX_JSON).await?)
                 .map_err(|_| PublishError::Response)

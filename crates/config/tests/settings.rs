@@ -120,15 +120,65 @@ fn live_publisher_requires_r2_but_disabled_llm_needs_no_key()
     let secrets = config.resolve_with(|name| match name {
         "DATABASE_URL" => Some("postgres://localhost/stories".into()),
         "ADMIN_TOKEN" => Some("a".repeat(32)),
-        "IG_USER_ID" => Some("123".into()),
-        "IG_ACCESS_TOKEN" | "R2_ACCESS_KEY_ID" | "R2_SECRET_ACCESS_KEY" => {
-            Some("fixture-only".into())
-        }
+        "IG_USER_ID" | "META_APP_ID" => Some("123".into()),
+        "IG_ACCESS_TOKEN"
+        | "META_INSPECTION_TOKEN"
+        | "R2_ACCESS_KEY_ID"
+        | "R2_SECRET_ACCESS_KEY" => Some("fixture-only".into()),
         "R2_ACCOUNT_ID" => Some("a".repeat(32)),
         _ => None,
     })?;
     assert!(secrets.llm_key.is_none());
     assert!(secrets.r2_secret.is_some());
     assert!(!format!("{secrets:?}").contains("fixture-only"));
+    Ok(())
+}
+
+#[test]
+fn token_credentials_follow_login_and_timing_bounds() -> Result<(), Box<dyn std::error::Error>> {
+    let mut config = settings()?;
+    config.instagram.dry_run = false;
+    config.instagram.login = stories_config::Login::Instagram;
+    let lookup = |name: &str| match name {
+        "DATABASE_URL" => Some("postgres://localhost/stories".into()),
+        "ADMIN_TOKEN" => Some("a".repeat(32)),
+        "IG_USER_ID" => Some("123".into()),
+        "IG_ACCESS_TOKEN" | "R2_ACCESS_KEY_ID" | "R2_SECRET_ACCESS_KEY" => {
+            Some("fixture-only".into())
+        }
+        "R2_ACCOUNT_ID" => Some("a".repeat(32)),
+        "IG_TOKEN_RECEIPT" => Some("fixture-receipt".into()),
+        _ => None,
+    };
+    let secrets = config.resolve_with(lookup)?;
+    assert!(secrets.meta_inspection_token.is_none());
+    assert!(secrets.instagram_token_receipt.is_some());
+    assert!(
+        config
+            .resolve_with(|name| if name == "IG_TOKEN_RECEIPT" {
+                None
+            } else {
+                lookup(name)
+            })
+            .is_err()
+    );
+    config.instagram.login = stories_config::Login::Facebook;
+    assert!(config.resolve_with(lookup).is_err());
+    config.instagram.dry_run = true;
+    config.resolve_with(|name| match name {
+        "DATABASE_URL" => Some("postgres://localhost/stories".into()),
+        "ADMIN_TOKEN" => Some("a".repeat(32)),
+        _ => None,
+    })?;
+    for invalid in [0, 59, 301] {
+        config.instagram.token.check_interval_s = invalid;
+        assert!(config.validate().is_err());
+    }
+    config.instagram.token.check_interval_s = 300;
+    config.instagram.token.refresh_days = 31;
+    assert!(config.validate().is_err());
+    config.instagram.token.refresh_days = 30;
+    config.instagram.token.inspection_token = "plaintext-secret".into();
+    assert!(config.validate().is_err());
     Ok(())
 }

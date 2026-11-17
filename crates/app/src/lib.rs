@@ -29,6 +29,7 @@ pub mod evaluation;
 pub mod imaging;
 pub mod pipeline;
 pub mod publication;
+pub mod token;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -40,6 +41,7 @@ pub struct AppState {
     pub imaging_enabled: bool,
     pub publishing_enabled: bool,
     pub publishing_ready: Arc<AtomicBool>,
+    pub token_state: Arc<token::TokenState>,
 }
 
 pub fn router(state: AppState) -> Router {
@@ -100,7 +102,9 @@ struct Readiness {
 async fn ready(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let healthy = state.store.health().await.is_ok()
         && (state.dry_run
-            || state.publishing_enabled && state.publishing_ready.load(Ordering::Relaxed));
+            || state.publishing_enabled
+                && state.publishing_ready.load(Ordering::Relaxed)
+                && state.token_state.allowed().await);
     let code = if healthy {
         StatusCode::OK
     } else {
@@ -134,6 +138,7 @@ async fn status(State(state): State<Arc<AppState>>) -> Response {
             "editorial_enabled":state.editorial_enabled,"imaging_enabled":state.imaging_enabled,
             "publishing_enabled": state.publishing_enabled,
             "publishing_ready":state.publishing_ready.load(Ordering::Relaxed),
+            "token_health":state.token_state.view().await,
             "pipeline_available": state.publishing_enabled,
         }))
         .into_response(),

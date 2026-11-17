@@ -155,3 +155,25 @@ async fn missing_quota_unknown_status_size_and_ids_fail_closed()
     assert!(Graph::new(Client::new(), Login::Instagram, "v27.0", "123/456", "token").is_err());
     Ok(())
 }
+
+#[tokio::test]
+async fn oauth_and_permission_codes_have_sanitized_typed_errors()
+-> Result<(), Box<dyn std::error::Error>> {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let server = MockServer::start().await;
+    let graph = client(&server)?;
+    for code in [102, 190, 10, 200, 299] {
+        server.reset().await;
+        Mock::given(method("GET"))
+            .respond_with(
+                ResponseTemplate::new(400)
+                    .set_body_json(json!({"error":{"code":code,"message":"fixture-secret"}})),
+            )
+            .mount(&server)
+            .await;
+        let error = graph.quota().await.err().ok_or("erro esperado")?;
+        assert!(error.token_failure().is_some());
+        assert!(!format!("{error:?}").contains("fixture-secret"));
+    }
+    Ok(())
+}

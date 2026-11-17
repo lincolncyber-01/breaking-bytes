@@ -18,7 +18,14 @@ fn main() -> Result<()> {
         .with(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info,sqlx=warn")),
         )
-        .with(tracing_subscriber::fmt::layer().json().with_target(false))
+        .with(
+            tracing_subscriber::fmt::layer()
+                .json()
+                .with_target(false)
+                .with_filter(tracing_subscriber::filter::filter_fn(|metadata| {
+                    stories_app::token::log_target_allowed(metadata.target())
+                })),
+        )
         .try_init()
         .map_err(|_| anyhow::anyhow!("não foi possível inicializar os logs"))?;
     let config_path =
@@ -56,6 +63,17 @@ fn main() -> Result<()> {
             Path::new(output),
         ));
     }
+    if std::env::args().any(|arg| arg == "--token-fingerprint") {
+        let secret = stories_config::Secret::from_environment(&settings.instagram.access_token)?;
+        let credential = stories_publisher::token::Credential::new(secret.expose())?;
+        writeln!(
+            &mut std::io::stdout().lock(),
+            "{}",
+            blake3::Hash::from_bytes(credential.fingerprint()).to_hex()
+        )
+        .context("não foi possível escrever o hash da credencial")?;
+        return Ok(());
+    }
     let secrets = settings.resolve_secrets()?;
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -83,6 +101,7 @@ fn main() -> Result<()> {
             .await
             .context("não foi possível abrir a Admin API")?;
         let publishing_ready=std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let token_state=std::sync::Arc::new(stories_app::token::TokenState::new(i64::from(settings.instagram.token.check_interval_s)*2+20,i64::from(settings.instagram.token.warning_days)));
         let app = router(AppState {
             store: store.clone(),
             admin_token: secrets.admin_token.clone(),
@@ -92,9 +111,10 @@ fn main() -> Result<()> {
             imaging_enabled: settings.imaging.enabled,
             publishing_enabled:settings.publishing.enabled,
             publishing_ready:publishing_ready.clone(),
+            token_state:token_state.clone(),
         });
         let (stop_sender,mut server_stop)=tokio::sync::watch::channel(false);
-        let mut pipeline=tokio::spawn(stories_app::pipeline::run(settings.clone(),store.clone(),secrets,publishing_ready,server_stop.clone()));
+        let mut pipeline=tokio::spawn(stories_app::pipeline::run(settings.clone(),store.clone(),secrets,publishing_ready,token_state,server_stop.clone()));
         let signal_sender=stop_sender.clone();
         let signal=tokio::spawn(async move{shutdown().await;let _=signal_sender.send(true);});
         tracing::info!(bind = %settings.admin.bind, dry_run = settings.instagram.dry_run,

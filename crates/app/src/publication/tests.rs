@@ -204,7 +204,17 @@ async fn dry_run_and_publication_crash_recovery_use_postgres_and_http() -> Resul
     let live = Publisher {
         settings,
         account: account.clone(),
-        remote: Some(Remote { graph, r2 }),
+        remote: Some(Remote {
+            graph,
+            r2,
+            token: crate::token::TokenMonitor::test_facebook(
+                stories_publisher::token::TokenClient::test_server(
+                    reqwest::Client::builder().no_proxy().build()?,
+                    Login::Facebook,
+                    &format!("{}/", server.uri()),
+                )?,
+            )?,
+        }),
         healthy: Arc::new(AtomicBool::new(true)),
     };
     Mock::given(path("/v27.0/123/content_publishing_limit"))
@@ -217,6 +227,13 @@ async fn dry_run_and_publication_crash_recovery_use_postgres_and_http() -> Resul
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({"data":[{"id":"999"}]})))
         .mount(&server)
         .await;
+    Mock::given(path("/debug_token")).respond_with(ResponseTemplate::new(200).set_body_json(json!({"data":{"app_id":"99","type":"USER","is_valid":true,"expires_at":(chrono::Utc::now()+chrono::Duration::days(30)).timestamp(),"scopes":["instagram_basic","instagram_content_publish","pages_read_engagement"]}}))).mount(&server).await;
+    live.remote
+        .as_ref()
+        .context("remote ausente")?
+        .token
+        .check(&store, &account)
+        .await?;
     // Queda depois do efeito remoto e antes de persistir a resposta: outro dono reconcilia.
     let (event, schedule) = seed(&store, false, 2, &root).await?;
     let id = reserve(&store, event, &schedule, &account, false).await?;

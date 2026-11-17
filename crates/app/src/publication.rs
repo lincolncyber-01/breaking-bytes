@@ -23,6 +23,7 @@ use tokio::{io::AsyncReadExt, sync::watch};
 struct Remote {
     graph: Graph,
     r2: R2,
+    token: crate::token::TokenMonitor,
 }
 struct Publisher {
     settings: Settings,
@@ -37,6 +38,7 @@ pub async fn run(
     http: HttpClient,
     secrets: Secrets,
     healthy: Arc<AtomicBool>,
+    token_state: Arc<crate::token::TokenState>,
     mut stop: watch::Receiver<bool>,
 ) -> Result<()> {
     let remote = if settings.instagram.dry_run {
@@ -49,7 +51,9 @@ pub async fn run(
         let required = |secret: Option<stories_config::Secret>| {
             secret.context("credencial de publicação ausente")
         };
+        let token = crate::token::TokenMonitor::new(&http, &settings, &secrets, token_state)?;
         Some(Remote {
+            token,
             graph: Graph::new(
                 http.trusted_api_client(),
                 login,
@@ -149,6 +153,27 @@ pub async fn run(
                 job_id = job.id,
                 "publicação pendente; detalhes externos omitidos"
             );
+            let credential_failure = error
+                .downcast_ref::<stories_publisher::PublishError>()
+                .and_then(|e| e.token_failure());
+            if let (Some(failure), Some(remote)) = (credential_failure, publisher.remote.as_ref()) {
+                remote
+                    .token
+                    .invalidate(&store, &publisher.account, failure)
+                    .await?;
+            }
+            if credential_failure.is_some()
+                || error
+                    .downcast_ref::<stories_publisher::token::TokenError>()
+                    .is_some()
+            {
+                publisher.healthy.store(false, Ordering::Relaxed);
+                match store.defer_publication(&job, 60).await {
+                    Ok(()) | Err(StoreError::LostLease) => {}
+                    Err(error) => return Err(error.into()),
+                }
+                continue;
+            }
             let publication =
                 if let Some(id) = job.payload.get("publication_id").and_then(Value::as_i64) {
                     Some(store.publication(id).await?)
@@ -186,6 +211,12 @@ pub async fn run(
 }
 
 impl Publisher {
+    async fn ensure_token(&self, store: &Store) -> Result<()> {
+        if let Some(remote) = &self.remote {
+            remote.token.ensure(store, &self.account).await?;
+        }
+        Ok(())
+    }
     async fn options(&self) -> Result<PublicationPolicy<'_>> {
         let (remote_usage, remote_limit) = if let Some(remote) = &self.remote {
             let q = remote.graph.quota().await?;
@@ -214,10 +245,24 @@ impl Publisher {
             max_age_hours: self.settings.pipeline.max_age_hours,
         }
     }
-    async fn preflight(&self, _store: &Store) -> Result<()> {
+    async fn preflight(&self, store: &Store) -> Result<()> {
         if let Some(remote) = &self.remote {
-            remote.graph.quota().await?;
-            remote.graph.stories().await?;
+            remote.token.check(store, &self.account).await?;
+            let access = async {
+                remote.graph.quota().await?;
+                remote.graph.stories().await?;
+                Ok::<_, stories_publisher::PublishError>(())
+            }
+            .await;
+            if let Err(error) = access {
+                if let Some(failure) = error.token_failure() {
+                    remote
+                        .token
+                        .invalidate(store, &self.account, failure)
+                        .await?;
+                }
+                return Err(error.into());
+            }
             // Uma sonda reversível verifica assinatura, permissão de escrita, leitura e remoção.
             let bytes = vec![0xff, 0xd8, 0xff, 0xd9];
             let hash = *blake3::hash(&bytes).as_bytes();
@@ -246,6 +291,7 @@ impl Publisher {
     }
     async fn process(&self, store: &Store, job: &Job) -> Result<()> {
         if job.kind == "schedule" {
+            self.ensure_token(store).await?;
             let event = positive(&job.payload, "event_id")?;
             let revision = job
                 .payload
@@ -320,6 +366,7 @@ impl Publisher {
             }
             return Ok(());
         }
+        self.ensure_token(store).await?;
         let revision = p.revision.context("revisão da publicação ausente")?;
         let artifact = store.publication_artifact(p.event_id, revision).await?;
         let bytes = read_artifact(
@@ -426,6 +473,7 @@ impl Publisher {
                 anyhow::bail!("container publicado sem barreira local; intervenção necessária");
             }
             ContainerStatus::Finished => {
+                self.ensure_token(store).await?;
                 let options = self.options().await?;
                 if !store
                     .publication_step(job, id, PublicationStep::Ready, options)
@@ -446,7 +494,14 @@ impl Publisher {
                             .publication_step(job, id, PublicationStep::Published(&media), options)
                             .await?;
                     }
-                    Err(_) => {
+                    Err(error) => {
+                        if let Some(failure) = error.token_failure() {
+                            remote
+                                .token
+                                .invalidate(store, &self.account, failure)
+                                .await?;
+                            self.healthy.store(false, Ordering::Relaxed);
+                        }
                         store
                             .publication_step(job, id, PublicationStep::Uncertain, options)
                             .await?;

@@ -124,6 +124,35 @@ pub struct Instagram {
     pub api_version: String,
     pub login: Login,
     pub dry_run: bool,
+    #[serde(default)]
+    pub token: TokenSettings,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct TokenSettings {
+    pub check_interval_s: u32,
+    pub warning_days: u32,
+    pub refresh_days: u32,
+    pub auto_refresh: bool,
+    pub app_id: String,
+    pub inspection_token: String,
+    pub page_id: String,
+    pub oauth_receipt: String,
+}
+impl Default for TokenSettings {
+    fn default() -> Self {
+        Self {
+            check_interval_s: 300,
+            warning_days: 7,
+            refresh_days: 30,
+            auto_refresh: true,
+            app_id: "env:META_APP_ID".into(),
+            inspection_token: "env:META_INSPECTION_TOKEN".into(),
+            page_id: "env:FB_PAGE_ID".into(),
+            oauth_receipt: "env:IG_TOKEN_RECEIPT".into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
@@ -190,6 +219,15 @@ fn enabled_by_default() -> bool {
 pub struct Secret(String);
 
 impl Secret {
+    /// Utilitário CLI: lê somente a referência solicitada, sem exigir os outros serviços.
+    pub fn from_environment(reference: &str) -> Result<Self, ConfigError> {
+        let name = secret_name(reference)?;
+        std::env::var(name)
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+            .map(Self)
+            .ok_or_else(|| ConfigError::MissingSecret(name.into()))
+    }
     pub fn expose(&self) -> &str {
         &self.0
     }
@@ -211,6 +249,10 @@ pub struct Secrets {
     pub r2_account: Option<Secret>,
     pub r2_access: Option<Secret>,
     pub r2_secret: Option<Secret>,
+    pub meta_app_id: Option<Secret>,
+    pub meta_inspection_token: Option<Secret>,
+    pub facebook_page_id: Option<Secret>,
+    pub instagram_token_receipt: Option<Secret>,
 }
 
 impl Settings {
@@ -251,6 +293,13 @@ impl Settings {
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.publishing.reserved_slots > 79 {
             return Err(ConfigError::Invalid("publishing.reserved_slots"));
+        }
+        let token = &self.instagram.token;
+        if !(60..=300).contains(&token.check_interval_s)
+            || !(1..=14).contains(&token.warning_days)
+            || !(1..=30).contains(&token.refresh_days)
+        {
+            return Err(ConfigError::Invalid("instagram.token"));
         }
         let image = &self.imaging;
         if !(1024..=8 * 1024 * 1024).contains(&image.max_bytes)
@@ -309,6 +358,10 @@ impl Settings {
             &self.storage.account_id,
             &self.storage.access_key,
             &self.storage.secret_key,
+            &self.instagram.token.app_id,
+            &self.instagram.token.inspection_token,
+            &self.instagram.token.page_id,
+            &self.instagram.token.oauth_receipt,
         ] {
             secret_name(reference)?;
         }
@@ -384,6 +437,17 @@ impl Settings {
                 required(reference).map(Some)
             }
         };
+        let supplied = |reference: &str| -> Result<Option<Secret>, ConfigError> {
+            Ok(lookup(secret_name(reference)?)
+                .filter(|v| !v.trim().is_empty())
+                .map(Secret))
+        };
+        let facebook_live = self.publishing.enabled
+            && !self.instagram.dry_run
+            && self.instagram.login == Login::Facebook;
+        let instagram_live = self.publishing.enabled
+            && !self.instagram.dry_run
+            && self.instagram.login == Login::Instagram;
         let admin_token = required(&self.admin.token)?;
         if admin_token.expose().len() < 32 {
             return Err(ConfigError::Invalid(
@@ -391,6 +455,22 @@ impl Settings {
             ));
         }
         Ok(Secrets {
+            meta_app_id: if facebook_live {
+                Some(required(&self.instagram.token.app_id)?)
+            } else {
+                supplied(&self.instagram.token.app_id)?
+            },
+            meta_inspection_token: if facebook_live {
+                Some(required(&self.instagram.token.inspection_token)?)
+            } else {
+                supplied(&self.instagram.token.inspection_token)?
+            },
+            facebook_page_id: supplied(&self.instagram.token.page_id)?,
+            instagram_token_receipt: if instagram_live {
+                Some(required(&self.instagram.token.oauth_receipt)?)
+            } else {
+                supplied(&self.instagram.token.oauth_receipt)?
+            },
             database_url: required(&self.database.url)?,
             admin_token,
             r2_account: optional(&self.storage.account_id)?,

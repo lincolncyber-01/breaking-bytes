@@ -1,7 +1,7 @@
 # ADR-012: validade e renovação dependem do tipo de token
 
-Data: 17/11/2026. Estado: decisão para o próximo incremento da fase 5;
-gerenciamento automático ainda não implementado.
+Data: 17/11/2026. Estado: decisão implementada parcialmente na fase 5, com monitoramento e
+renovação condicionada descritos no ADR-013.
 
 O blueprint generaliza token de 60 dias, renovação em 30 e alerta abaixo de sete.
 A documentação oficial atual exige distinguir fluxos:

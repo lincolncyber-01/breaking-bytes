@@ -15,10 +15,12 @@ mod collection;
 mod editorial;
 mod imaging;
 mod publication;
+mod token;
 pub use collection::{CollectionStats, SourceState};
 pub use editorial::{EditorialContext, EditorialOutcome, EditorialStep};
 pub use imaging::{RenderArtifact, RenderDisposition};
 pub use publication::{Publication, PublicationArtifact, PublicationPolicy, PublicationStep};
+pub use token::{TokenRecord, TokenRefreshLease};
 
 static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("../../migrations");
 

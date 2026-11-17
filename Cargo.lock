@@ -4175,10 +4175,13 @@ version = "0.1.0"
 dependencies = [
  "aws-sdk-s3",
  "blake3",
+ "chrono",
  "reqwest",
  "rustls",
  "serde",
  "serde_json",
+ "stories-core",
+ "subtle",
  "thiserror",
  "tokio",
  "url",

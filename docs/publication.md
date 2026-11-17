@@ -60,3 +60,7 @@ Instagram Login. Não aplique a regra genérica de 60 dias a todos os tokens.
 Preflight e limpeza têm orçamento total de vinte segundos por rotina e podem ser
 interrompidos pelo sinal de parada. Queda durante limpeza deixa o objeto elegível
 para nova remoção idempotente no ciclo seguinte.
+
+A migration 0006 adiciona controle obrigatório de token no modo real. Consulte
+docs/tokens.md e ADR-013: o preflight agora inclui o monitor, e a readiness recusa
+credenciais vencidas, antigas ou com rotação pendente.

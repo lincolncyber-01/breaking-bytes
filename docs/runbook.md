@@ -155,3 +155,12 @@ Leia docs/publication.md antes de alterar o modo. Aplique a migration 0005.
 As intenções uncertain e published_unresolved exigem acompanhamento; não apague
 registros nem reenvie por script. Preflight não substitui App Review, staging ou
 validação do ciclo de vida do token. Portões estão em docs/reports/phase-5.md.
+
+## Credenciais Meta
+
+Aplique também a migration 0006. Leia docs/tokens.md antes de habilitar modo real.
+A readiness verifica vencimento e idade dos metadados, além do preflight. O status
+administrativo identifica tipo, origem e falha sem revelar o segredo. Em
+rotation_required ou refresh_uncertain, obtenha uma credencial pelo fluxo Meta,
+atualize o ambiente e recrie o processo; não remova a barreira por SQL. Alertas
+locais são deduplicados; entrega externa ainda depende da fase 6.

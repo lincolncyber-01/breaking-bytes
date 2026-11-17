@@ -14,6 +14,7 @@ pub async fn run(
     store: Store,
     secrets: Secrets,
     publishing_ready: Arc<AtomicBool>,
+    token_state: Arc<crate::token::TokenState>,
     mut stop: watch::Receiver<bool>,
 ) -> Result<()> {
     if !settings.collection.enabled
@@ -74,6 +75,7 @@ pub async fn run(
             http.clone(),
             secrets,
             publishing_ready,
+            token_state,
             stop.clone(),
         ));
     }

@@ -1,0 +1,90 @@
+command: cargo nextest run --workspace --locked --test-threads 1 --no-fail-fast
+exit_code: 0
+   Compiling stories-app v0.1.0 (/workspace/work/breaking-bytes/crates/app)
+    Finished `test` profile [unoptimized] target(s) in 11.62s
+────────────
+ Nextest run ID 2e9a4c39-89d7-4e05-8be8-df46bc2b1b7a with nextest profile: default
+    Starting 81 tests across 24 binaries
+        PASS [   0.006s] ( 1/81) stories-app collection::tests::circuit_breaker_waits_and_honors_rate_limit
+        PASS [   6.476s] ( 2/81) stories-app editorial::tests::durable_editorial_rewrites_retries_resume_and_revision_fencing
+        PASS [  14.882s] ( 3/81) stories-app editorial::tests::renewal_and_stop_do_not_wait_on_the_workers_own_transaction
+        PASS [   0.048s] ( 4/81) stories-app evaluation::tests::evaluation_distinguishes_provider_failure_from_factual_rejection
+        PASS [  11.894s] ( 5/81) stories-app imaging::tests::checked_to_jpeg_is_durable_atomic_fenced_and_dry_run
+        PASS [   4.810s] ( 6/81) stories-app publication::tests::dry_run_and_publication_crash_recovery_use_postgres_and_http
+        PASS [   7.207s] ( 7/81) stories-app token::tests::token_monitor_refresh_fencing_restart_rotation_and_alerts_use_postgres
+        PASS [   0.029s] ( 8/81) stories-app token::tests::verbose_dependency_logs_cannot_expose_query_or_credentials
+        PASS [   0.122s] ( 9/81) stories-app::admin fingerprint_cli_uses_only_environment_and_never_prints_token
+        PASS [   9.108s] (10/81) stories-app::admin health_auth_pause_and_fail_closed_readiness
+        PASS [   3.224s] (11/81) stories-cluster::clustering formatting_changes_do_not_create_a_new_event
+        PASS [   0.055s] (12/81) stories-cluster::clustering separates_unrelated_announcements_and_marks_new_facts
+        PASS [   0.226s] (13/81) stories-cluster::clustering similarity_is_symmetric_and_bounded
+        PASS [   0.051s] (14/81) stories-collectors tests::atom_contract_matches_edgar_and_regular_feeds
+        PASS [   0.151s] (15/81) stories-collectors tests::confirms_publication_date_from_original_article_not_updated_feed
+        PASS [   0.191s] (16/81) stories-collectors tests::feed_contract_conditional_requests_and_age_filter
+        PASS [   0.074s] (17/81) stories-collectors tests::hackernews_uses_item_endpoint_and_filters_dead_items
+        PASS [   0.053s] (18/81) stories-collectors tests::image_download_keeps_mime_and_enforces_its_own_bounded_limit
+        PASS [   0.009s] (19/81) stories-collectors tests::json_and_xml_contracts_reject_malformed_input
+        PASS [   0.055s] (20/81) stories-collectors tests::robots_limits_rate_limit_and_redirect_contracts
+        PASS [   0.006s] (21/81) stories-collectors tests::ssrf_blocks_special_networks_and_literal_bypasses
+        PASS [   1.091s] (22/81) stories-collectors tests::transient_failures_timeout_and_redirect_rules
+        PASS [   0.061s] (23/81) stories-config::settings bounds_and_plaintext_credentials_are_rejected
+        PASS [   0.020s] (24/81) stories-config::settings dry_run_needs_no_external_credentials_and_redacts_secrets
+        PASS [   0.016s] (25/81) stories-config::settings editorial_requires_key_even_in_dry_run_and_valid_origin_groups
+        PASS [   0.012s] (26/81) stories-config::settings imaging_limits_paths_and_manifest_are_validated
+        PASS [   0.007s] (27/81) stories-config::settings live_mode_requires_external_credentials
+        PASS [   0.009s] (28/81) stories-config::settings live_publisher_requires_r2_but_disabled_llm_needs_no_key
+        PASS [   0.006s] (29/81) stories-config::settings token_credentials_follow_login_and_timing_bounds
+        PASS [   0.006s] (30/81) stories-config::settings unknown_fields_and_short_admin_tokens_fail
+        PASS [   0.022s] (31/81) stories-core token::tests::expired_or_stale_proofs_never_allow_publication
+        PASS [   0.005s] (32/81) stories-core token::tests::expiry_permissions_age_and_page_lifetime_are_distinct
+        PASS [   0.013s] (33/81) stories-core token::tests::rotation_intent_blocks_every_remaining_lifetime
+        PASS [   0.020s] (34/81) stories-core::domain no_state_can_transition_to_itself
+        PASS [   0.009s] (35/81) stories-core::domain pipeline_requires_every_gate
+        PASS [   0.012s] (36/81) stories-core::domain publication_key_is_stable
+        PASS [   0.012s] (37/81) stories-core::domain publication_keys_reject_invalid_ranges
+        PASS [   0.005s] (38/81) stories-core::domain publication_kinds_match_sql_values
+        PASS [   0.005s] (39/81) stories-core::domain rejection_requires_a_reason_and_preserves_published_events
+        PASS [   0.005s] (40/81) stories-core::domain state_names_match_storage
+        PASS [   0.005s] (41/81) stories-core::domain terminal_states_cannot_be_reopened
+        PASS [   0.058s] (42/81) stories-editorial client::tests::errors_redact_body_and_preserve_retry_after
+        PASS [   0.034s] (43/81) stories-editorial client::tests::messages_contract_keeps_data_out_of_system_and_accepts_json
+        PASS [   1.167s] (44/81) stories-editorial client::tests::provider_timeout_size_limits_refusal_and_independent_system
+        PASS [   0.094s] (45/81) stories-editorial::validation fabricated_citations_omissions_and_false_audits_are_blocked
+        PASS [   0.036s] (46/81) stories-editorial::validation structured_draft_and_independent_claims_accept_supported_copy
+        PASS [   0.047s] (47/81) stories-editorial::validation style_schema_attribution_and_factual_inventions_are_blocked
+        PASS [   3.246s] (48/81) stories-editorial::validation unsupported_numbers_always_fail
+        PASS [   0.060s] (49/81) stories-imaging::security any_content_change_invalidates_the_review
+        PASS [   0.026s] (50/81) stories-imaging::security arbitrary_bytes_do_not_panic_and_obey_limits
+        PASS [   0.849s] (51/81) stories-imaging::security exif_orientation_is_applied_then_metadata_is_discarded
+        PASS [   0.056s] (52/81) stories-imaging::security license_review_domain_relevance_and_exact_hash_are_required
+        PASS [   0.360s] (53/81) stories-imaging::security magic_dimensions_allocation_and_corruption_are_checked_before_use
+        PASS [   0.014s] (54/81) stories-imaging::security source_preference_and_og_identity_are_enforced
+        PASS [  15.029s] (55/81) stories-imaging::visual golden_stories_match_decoded_pixels_and_safe_areas
+        PASS [   1.314s] (56/81) stories-imaging::visual licensed_photo_preserves_aspect_alpha_and_rounded_corners
+        PASS [   1.113s] (57/81) stories-imaging::visual overflow_missing_glyph_and_invalid_content_never_get_clipped
+        PASS [   0.111s] (58/81) stories-normalize::normalization canonicalization_is_idempotent
+        PASS [   0.011s] (59/81) stories-normalize::normalization canonicalization_preserves_article_parameters
+        PASS [   0.022s] (60/81) stories-normalize::normalization extraction_keeps_versions_and_accent_equivalence
+        PASS [   0.009s] (61/81) stories-normalize::normalization html_canonical_metadata_and_invisible_content
+        PASS [   0.103s] (62/81) stories-publisher graph::tests::missing_quota_unknown_status_size_and_ids_fail_closed
+        PASS [   0.029s] (63/81) stories-publisher graph::tests::oauth_and_permission_codes_have_sanitized_typed_errors
+        PASS [   0.032s] (64/81) stories-publisher graph::tests::official_story_contract_and_sensitive_errors
+        PASS [   0.027s] (65/81) stories-publisher graph::tests::pagination_never_follows_remote_next_url
+        PASS [   0.038s] (66/81) stories-publisher r2::tests::signed_put_readback_and_idempotent_delete_contract
+        PASS [   0.049s] (67/81) stories-publisher r2::tests::sigv4_is_bound_to_r2_without_network_or_default_credentials
+        PASS [   0.028s] (68/81) stories-publisher token::tests::inspection_checks_app_permissions_page_and_both_expirations
+        PASS [   0.026s] (69/81) stories-publisher token::tests::instagram_refresh_never_exposes_replacement_or_error_bodies
+        PASS [   0.005s] (70/81) stories-publisher token::tests::oauth_receipt_is_bound_to_credential_and_long_lived_window
+        PASS [  10.053s] (71/81) stories-publisher token::tests::oauth_response_limits_malformed_data_and_timeout_fail_closed
+        PASS [   0.040s] (72/81) stories-scheduler tests::never_exceeds_effective_cap
+        PASS [   0.010s] (73/81) stories-scheduler tests::weights_reserve_and_gap
+        PASS [   0.013s] (74/81) stories-scheduler tests::weights_stay_in_range
+        PASS [   9.916s] (75/81) stories-store::collection atomic_ingest_concurrent_clustering_updates_and_burst
+        PASS [   0.013s] (76/81) stories-store::postgres exponential_backoff_has_bounded_jitter
+        PASS [   6.389s] (77/81) stories-store::postgres postgres_outbox_leases_and_publication_uniqueness
+        PASS [   0.119s] (78/81) stories-verify::eligibility any_unconfirmed_primary_stays_in_observation
+        PASS [   0.322s] (79/81) stories-verify::eligibility duplicates_never_create_corroboration
+        PASS [   0.009s] (80/81) stories-verify::eligibility levels_require_dates_independence_and_no_signals
+        PASS [   0.014s] (81/81) stories-verify::eligibility registrable_domains_and_repository_boundaries
+────────────
+     Summary [ 111.036s] 81 tests run: 81 passed, 0 skipped

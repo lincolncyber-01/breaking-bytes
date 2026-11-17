@@ -52,8 +52,9 @@ não demonstra entrega automática em toda falha possível da API externa.
 
 ## Pendências para encerrar a fase 5
 
-1. Implementar monitoramento de validade e renovação do token por fluxo OAuth,
-   seguindo os diferentes prazos e tipos confirmados no ADR-012.
+1. Monitoramento e renovação conservada foram implementados no incremento descrito
+   em phase-5-token.md. Faltam rotação externa de valor alterado e validação Meta real,
+   conforme ADR-013.
 2. Implementar reconsulta das fontes publicadas por 24 horas e criação de correções
    com trilha de evidência; integrar o tipo correction ao caminho editorial.
 3. Implementar resolução administrativa auditada de mídia sem ID e ambiguidade.
@@ -81,3 +82,5 @@ sem prova adicional de idempotência remota; incerteza é preservada explicitame
 5. Preparar VPS com egress DNS validável, volume de artefatos, backup do Postgres
    e Admin API em loopback; medir recursos antes de habilitar fluxo real.
 6. Concluir alertas e runbook operacional da fase 6 antes do aceite de produção.
+
+O incremento de token e suas evidências estão em [phase-5-token.md](phase-5-token.md).

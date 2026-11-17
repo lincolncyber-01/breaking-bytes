@@ -7,6 +7,9 @@ publish.workspace = true
 repository.workspace = true
 
 [dependencies]
+chrono.workspace = true
+stories-core.workspace = true
+subtle.workspace = true
 aws-sdk-s3.workspace = true
 reqwest.workspace = true
 url.workspace = true

@@ -2,6 +2,7 @@
 
 pub mod graph;
 pub mod r2;
+pub mod token;
 
 use std::time::Duration;
 use thiserror::Error;
@@ -14,6 +15,10 @@ pub const MAX_JPEG: usize = 8 * 1024 * 1024;
 pub enum PublishError {
     #[error("configuração de publicação inválida")]
     Configuration,
+    #[error("credencial de publicação inválida ou revogada")]
+    Authentication,
+    #[error("permissão de publicação ausente ou revogada")]
+    Permission,
     #[error("requisição externa excedeu o tempo limite ou falhou no transporte")]
     Transport,
     #[error("serviço externo retornou HTTP {0}")]
@@ -55,4 +60,14 @@ async fn digest(bytes: Vec<u8>) -> Result<(Vec<u8>, [u8; 32]), PublishError> {
     })
     .await
     .map_err(|_| PublishError::Artifact)
+}
+
+impl PublishError {
+    pub fn token_failure(&self) -> Option<stories_core::token::TokenFailure> {
+        match self {
+            Self::Authentication => Some(stories_core::token::TokenFailure::Invalid),
+            Self::Permission => Some(stories_core::token::TokenFailure::Permission),
+            _ => None,
+        }
+    }
 }
