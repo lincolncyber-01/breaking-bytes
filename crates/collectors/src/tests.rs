@@ -428,3 +428,55 @@ async fn revisits_old_article_and_never_infers_retraction_from_404()
     );
     Ok(())
 }
+
+#[tokio::test]
+async fn api_revisit_keeps_old_release_date_and_late_notice_without_news_age_filter()
+-> Result<(), Box<dyn std::error::Error>> {
+    let server = MockServer::start().await;
+    Mock::given(path("/robots.txt"))
+        .respond_with(ResponseTemplate::new(200).set_body_string("User-agent: *\nAllow: /\n"))
+        .mount(&server)
+        .await;
+    let release = "https://github.com/rust-lang/rust/releases/tag/1.100";
+    Mock::given(path("/github")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([{"html_url":release,"name":"Rust 1.100","tag_name":"1.100","body":format!("{} Correction: a versão é 1.101.","Release antigo. ".repeat(300)),"published_at":"2020-01-01T00:00:00Z","draft":false}]))).mount(&server).await;
+    let collector = Collector::new(http::HttpClient::local(&server.uri(), 2097152)?, 20, 6)?;
+    let source = format!("{}/github", server.uri());
+    assert!(
+        collector
+            .collect(
+                SourceKind::Github,
+                &source,
+                &Validators::default(),
+                Utc::now()
+            )
+            .await?
+            .articles
+            .is_empty()
+    );
+    let revision = collector
+        .revisit(SourceKind::Github, &source, release, Utc::now())
+        .await?
+        .ok_or("release antigo deve poder ser reconsultado")?;
+    assert_eq!(
+        revision.article.published_at.map(|d| d.to_rfc3339()),
+        Some("2020-01-01T00:00:00+00:00".into())
+    );
+    assert_eq!(
+        revision.notice.as_deref(),
+        Some("Correction: a versão é 1.101.")
+    );
+    assert!(revision.article.excerpt.starts_with("Correction:"));
+    assert!(revision.article.excerpt.chars().count() <= 2000);
+    assert!(
+        collector
+            .revisit(
+                SourceKind::Github,
+                &source,
+                "https://github.com/rust-lang/rust/releases/tag/absent",
+                Utc::now()
+            )
+            .await?
+            .is_none()
+    );
+    Ok(())
+}

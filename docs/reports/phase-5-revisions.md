@@ -34,10 +34,15 @@ no PR #5;
 os resultados dos 81 testes anteriores não se aplicam automaticamente ao código novo.
 
 A suíte local dos crates config, normalize, verify, editorial e collectors passou:
-43 testes, zero ignorados, em 6,761 segundos. Foi repetido Clippy com --locked,
+44 testes, zero ignorados, em 6,695 segundos. Foi repetido Clippy com --locked,
 --all-targets e -D warnings após o bloqueio de reserva concorrente, sem avisos.
 A cobertura do primeiro commit 24f1e64 passou no CI; a versão final tem seu próprio
 workflow e seus resultados são registrados no PR.
+
+O contrato adicional de GitHub Releases confirma reconsulta com data original
+antiga, sem reutilizar o filtro de idade de notícias novas. Captura inválida vira
+falha controlada daquela fonte e não encerra o acompanhamento das demais fontes.
+O contrato Postgres também exercita essa degradação.
 
 A confirmação semântica precisa de corpus real com títulos traduzidos, notas
 ambíguas, retratações e instruções maliciosas. Os testes simulados demonstram os

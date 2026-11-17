@@ -30,6 +30,16 @@ impl RevisionReader for Changed {
         Ok(Some(CapturedRevision{article:CapturedArticle{url:e.article_url.clone(),title:"Rust corrige versão 1.101".into(),excerpt:"Rust corrige versão 1.101. Correção: Rust confirma versão 1.101. O anúncio anterior foi corrigido.".into(),published_at:e.published_at,image_url:None},notice:Some("Correção: Rust confirma versão 1.101. O anúncio anterior foi corrigido.".into())}))
     }
 }
+struct Malformed;
+impl RevisionReader for Malformed {
+    async fn read(&self, e: &Evidence) -> Result<Option<CapturedRevision>, &'static str> {
+        let mut captured = Changed.read(e).await?;
+        if let Some(c) = &mut captured {
+            c.article.title.clear();
+        }
+        Ok(captured)
+    }
+}
 struct Missing;
 impl RevisionReader for Missing {
     async fn read(&self, _: &Evidence) -> Result<Option<CapturedRevision>, &'static str> {
@@ -151,6 +161,15 @@ async fn correction_dry_run_survives_crash_and_fences_changed_sources() -> Resul
     let (count,failures):(i64,i32)=sqlx::query_as("SELECT (SELECT count(*) FROM publication_reviews),failures FROM publication_source_snapshots WHERE publication_id=$1").bind(original).fetch_one(store.pool()).await?;
     assert_eq!(count, 0);
     assert_eq!(failures, 1);
+    let malformed = force_observation(&store, &settings, original, &Malformed).await?;
+    assert_eq!(malformed.version, missing.version);
+    let code: String = sqlx::query_scalar(
+        "SELECT last_error_code FROM publication_source_snapshots WHERE publication_id=$1",
+    )
+    .bind(original)
+    .fetch_one(store.pool())
+    .await?;
+    assert_eq!(code, "parse");
     let changed = force_observation(&store, &settings, original, &Changed).await?;
     assert_eq!(changed.version, 2);
     let again = force_observation(&store, &settings, original, &Changed).await?;

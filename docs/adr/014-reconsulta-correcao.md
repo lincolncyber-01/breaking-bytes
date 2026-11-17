@@ -58,7 +58,8 @@ A troca entre simulação e modo real não promove candidatos antigos.
 Ativação padrão é false, inclusive no Compose. A reconsulta pode operar sem
 LLM, deixando a revisão pendente. A pausa global vale para ambos os workers.
 Falhas integrais de fonte recebem recuo exponencial com jitter e teto de uma
-hora; jobs esgotados continuam visíveis para investigação, sem ressurreição cega.
+hora; captura inválida é falha isolada da fonte, sem renovar sua prova nem encerrar
+o acompanhamento das fontes saudáveis; jobs esgotados continuam visíveis para investigação, sem ressurreição cega.
 
 Publicações legadas sem snapshot não recebem cópia inferida dos artigos atuais.
 É impossível reconstruir honestamente o texto que foi publicado somente com o

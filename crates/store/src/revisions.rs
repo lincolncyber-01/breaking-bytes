@@ -83,6 +83,23 @@ async fn identity(tx: &mut Transaction<'_, Postgres>, e: &Evidence) -> Result<bo
     sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM sources WHERE id=$1 AND enabled AND name=$2 AND url=$3 AND kind=$4 AND layer::text=$5 AND weight=$6 AND origin_group IS NOT DISTINCT FROM $7)")
         .bind(e.source_id).bind(&e.source_name).bind(&e.source_url).bind(&e.kind).bind(&e.layer).bind(e.weight).bind(&e.origin_group).fetch_one(&mut **tx).await.map_err(database_error)
 }
+async fn source_error(
+    tx: &mut Transaction<'_, Postgres>,
+    publication: i64,
+    article: i64,
+    source: i32,
+    code: &str,
+) -> Result<(), StoreError> {
+    if !matches!(
+        code,
+        "http" | "parse" | "limits" | "kind" | "worker" | "unavailable" | "identity_changed"
+    ) {
+        return Err(StoreError::InvalidOptions);
+    }
+    sqlx::query("UPDATE publication_source_snapshots SET attempted_at=now(),failures=LEAST(failures+1,32),last_error_code=$4 WHERE publication_id=$1 AND article_id=$2 AND source_id=$3")
+        .bind(publication).bind(article).bind(source).bind(code).execute(&mut **tx).await.map_err(database_error)?;
+    Ok(())
+}
 #[derive(FromRow)]
 struct Snapshot {
     baseline: Value,
@@ -252,9 +269,6 @@ impl Store {
                 after.excerpt = captured.article.excerpt;
                 after.published_at = captured.article.published_at;
                 after.date_confirmed = after.published_at.is_some_and(|t| t <= Utc::now());
-                if captured.article.url != after.article_url {
-                    return Err(StoreError::InvalidJob);
-                }
                 let hash = fingerprint(&after, captured.notice.as_deref())
                     .map_err(|_| StoreError::InvalidJob)?;
                 let revision = SourceRevision {
@@ -264,27 +278,29 @@ impl Store {
                     observed_at: Utc::now(),
                     after_hash: blake3::Hash::from_bytes(hash).to_hex().to_string(),
                 };
-                if !revision.eligible(Utc::now(), age) {
-                    return Err(StoreError::InvalidJob);
+                if captured.article.url != after.article_url || !revision.eligible(Utc::now(), age)
+                {
+                    source_error(
+                        &mut tx,
+                        context.publication_id,
+                        o.article_id,
+                        o.source_id,
+                        "parse",
+                    )
+                    .await?;
+                    continue;
                 }
                 sqlx::query("UPDATE publication_source_snapshots SET current_snapshot=$4,content_hash=$5,notice=$6,fetched_at=now(),attempted_at=now(),failures=0,last_error_code=NULL WHERE publication_id=$1 AND article_id=$2 AND source_id=$3")
                     .bind(context.publication_id).bind(o.article_id).bind(o.source_id).bind(serde_json::to_value(after).map_err(|_|StoreError::InvalidJob)?).bind(revision.after_hash).bind(captured.notice).execute(&mut *tx).await.map_err(database_error)?;
             } else {
-                let code = code.unwrap_or("unavailable");
-                if !matches!(
-                    code,
-                    "http"
-                        | "parse"
-                        | "limits"
-                        | "kind"
-                        | "worker"
-                        | "unavailable"
-                        | "identity_changed"
-                ) {
-                    return Err(StoreError::InvalidOptions);
-                }
-                sqlx::query("UPDATE publication_source_snapshots SET attempted_at=now(),failures=LEAST(failures+1,32),last_error_code=$4 WHERE publication_id=$1 AND article_id=$2 AND source_id=$3")
-                    .bind(context.publication_id).bind(o.article_id).bind(o.source_id).bind(code).execute(&mut *tx).await.map_err(database_error)?;
+                source_error(
+                    &mut tx,
+                    context.publication_id,
+                    o.article_id,
+                    o.source_id,
+                    code.unwrap_or("unavailable"),
+                )
+                .await?;
             }
         }
         let rows:Vec<Snapshot>=sqlx::query_as("SELECT article_id,source_id,baseline,current_snapshot,content_hash,notice,fetched_at,last_error_code FROM publication_source_snapshots WHERE publication_id=$1 ORDER BY article_id,source_id").bind(context.publication_id).fetch_all(&mut *tx).await.map_err(database_error)?;
