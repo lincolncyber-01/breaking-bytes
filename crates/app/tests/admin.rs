@@ -46,6 +46,11 @@ async fn health_auth_pause_and_fail_closed_readiness() -> Result<(), Box<dyn std
         _ => None,
     })?;
     let state = AppState {
+        token_state: std::sync::Arc::new(stories_app::token::TokenState::default()),
+        publishing_enabled: true,
+        corrections_enabled: false,
+        publisher_admin: std::sync::Arc::new(stories_app::publication::AdminPublisher::default()),
+        publishing_ready: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
         editorial_enabled: false,
         imaging_enabled: false,
         store: store.clone(),
@@ -186,5 +191,30 @@ async fn exercise_binary(
     for line in stdout.lines() {
         let _: serde_json::Value = serde_json::from_str(line)?;
     }
+    Ok(())
+}
+
+#[tokio::test]
+async fn fingerprint_cli_uses_only_environment_and_never_prints_token()
+-> Result<(), Box<dyn std::error::Error>> {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let token = "fixture-credential-only-for-cli";
+    let output = tokio::time::timeout(
+        Duration::from_secs(5),
+        tokio::process::Command::new(env!("CARGO_BIN_EXE_stories-tech"))
+            .env_clear()
+            .env("IG_ACCESS_TOKEN", token)
+            .env("STORIES_CONFIG", root.join("config/exemplo.toml"))
+            .env("STORIES_SOURCES", root.join("config/sources.toml"))
+            .arg("--token-fingerprint")
+            .output(),
+    )
+    .await??;
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout)?.trim(),
+        blake3::hash(token.as_bytes()).to_hex().as_str()
+    );
+    assert!(!String::from_utf8(output.stderr)?.contains(token));
     Ok(())
 }

@@ -3,11 +3,12 @@
 Pipeline de notícias tech para Stories em Rust, conforme [blueprint](docs/blueprint.pdf).
 Documentação e comentários em português do Brasil; identificadores em inglês.
 
-Implementação incremental: **fases 1 a 4 com código disponível**. A fase 2 mantém
-pendente a coleta real por 24 horas; a fase 3 mantém a avaliação com LLM real.
-O serviço pode confirmar, redigir, checar e gerar o JPEG em dry_run. A publicação
-Meta e o armazenamento R2 serão implementados na fase 5. O modo real continua
-sem readiness nesta etapa.
+Implementação incremental: **fases 1 a 4 disponíveis; fase 5 em andamento**.
+O serviço coleta, confirma, redige, checa, renderiza e consome a publicação em
+`dry_run`. O incremento atual adiciona clientes Meta/R2, reservas, barreira de
+publicação e reconciliação conservadora. Há testes com APIs simuladas e Postgres;
+a reconsulta e a correção automática estão implementadas com ativação explícita.
+Publicação real, rotação externa do token e os portões de staging continuam pendentes. Consulte o [relatório da fase 5](docs/reports/phase-5.md).
 
 ## Ambiente local
 
@@ -37,8 +38,7 @@ o item não entra no pipeline; data de atualização não substitui publicação
 
 O agrupamento usa o fallback `hash_entities` do blueprint. Ele não demonstra
 deduplicação semântica de paráfrases. Leia as [decisões de agrupamento](docs/adr/005-deduplicacao.md)
-e [coleta](docs/adr/006-coleta.md) antes de habilitar fontes. Nenhum cliente de
-publicação está ativo.
+e [coleta](docs/adr/006-coleta.md) antes de habilitar fontes. O cliente de publicação permanece em simulação por padrão.
 
 A redação fica desativada por padrão (`llm.enabled=false`). Para testá-la na VPS
 com egress validado, configure LLM_API_KEY e STORIES__LLM__ENABLED=true, mantendo
@@ -46,7 +46,7 @@ dry_run=true. N1/N2 só avançam com confirmação recente na origem; N3 permane
 em observação. N2 exige origin_group cadastrado para cada origem editorial.
 A checagem é uma segunda chamada independente; até duas reescritas são
 persistidas. CHECKED cria outbox render. O worker de imagens valida a revisão, gera um JPEG
-durável e confirma RENDERED junto da outbox schedule, que aguarda a fase 5. Leia as decisões
+durável e confirma RENDERED junto da outbox schedule, consumida pelo agendador. Leia as decisões
 [editoriais](docs/adr/007-editorial.md) e do [contrato LLM](docs/adr/008-contrato-anthropic.md).
 
 Para avaliar candidatos rotulados, sem banco e sem publicar:
@@ -124,3 +124,24 @@ e os relatórios das [fases 1](docs/reports/phase-1.md), [2](docs/reports/phase-
 Conta Meta, R2,
 avaliação editorial, snapshots, benchmarks e canário só serão declarados aprovados
 com evidências específicas. Não existe implantação de produção nesta entrega parcial.
+
+## Publicação
+
+Leia [operação da publicação](docs/publication.md) e os ADRs 010 e 011. O fluxo
+real só tem readiness após o preflight; isso não representa aceite de produção.
+A fase 5 continua aberta e a configuração padrão mantém `dry_run=true`.
+
+O [monitor de tokens](docs/tokens.md) inspeciona Facebook Login e controla validade
+e renovação documentada de Instagram Login. Datas e permissões de Instagram Login
+partem de recibo de emissão vinculado ao hash; essa origem fica explícita. Tokens
+com valor alterado exigem rotação no ambiente, conforme o ADR-013.
+
+Evidências e pendências do incremento: [relatório de tokens](docs/reports/phase-5-token.md).
+
+A reconsulta das fontes de Stories publicados é optativa:
+`STORIES__CORRECTIONS__ENABLED=true`. Ela acompanha 24 horas, ou 72 horas acima
+do limiar de impacto configurado. Para classificar mudanças e gerar um Story,
+`llm.enabled` também deve estar ativo. Correção exige nota explícita, citações
+literais e uma checagem independente. O fluxo preserva o Story original, a data da
+matéria e o modo de simulação. Leia a [ADR-014](docs/adr/014-reconsulta-correcao.md)
+e o [contrato da revisão](docs/reports/phase-5-revisions.md).

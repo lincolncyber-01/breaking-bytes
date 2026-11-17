@@ -20,7 +20,8 @@ struct Row {
     assessment_json: Option<Value>,
     draft_json: Option<Value>,
     created_at: DateTime<Utc>,
-    parent_event_id: Option<i64>,
+    publication_kind: String,
+    review_id: Option<i64>,
 }
 
 #[derive(Debug)]
@@ -37,16 +38,31 @@ pub struct EditorialContext {
     pub created_at: DateTime<Utc>,
     pub kind: &'static str,
     pub evidence: Vec<Evidence>,
+    pub review: Option<crate::ReviewRecord>,
 }
 
 pub enum EditorialStep {
-    Observe { reason: String, expired: bool },
+    Observe {
+        reason: String,
+        expired: bool,
+    },
     Verified(Assessment),
     Drafted(Draft),
     Checked(FactReport),
-    Rewrite { code: String, limit: u8 },
-    Failed { code: String },
-    Rejected { code: String },
+    CheckedRevision {
+        report: FactReport,
+        review: stories_editorial::revisions::ChangeReview,
+    },
+    Rewrite {
+        code: String,
+        limit: u8,
+    },
+    Failed {
+        code: String,
+    },
+    Rejected {
+        code: String,
+    },
     Skip,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -85,7 +101,7 @@ impl Store {
     }
 
     pub async fn editorial_context(&self, event: i64) -> Result<EditorialContext, StoreError> {
-        let row:Row=sqlx::query_as("SELECT id,state,reason,content_revision,editorial_version,verified_revision,editorial_attempts,assessment_json,draft_json,created_at,parent_event_id FROM events WHERE id=$1")
+        let row:Row=sqlx::query_as("SELECT id,state,reason,content_revision,editorial_version,verified_revision,editorial_attempts,assessment_json,draft_json,created_at,publication_kind,review_id FROM events WHERE id=$1")
             .bind(event).fetch_one(&self.pool).await.map_err(database_error)?;
         #[derive(FromRow)]
         struct SourceRow {
@@ -102,7 +118,7 @@ impl Store {
             title: String,
             body_excerpt: Option<String>,
         }
-        let evidence:Vec<SourceRow>=sqlx::query_as("SELECT a.id article_id,s.id source_id,s.name source_name,s.url source_url,a.url_canonical article_url,s.layer::text layer,s.kind,s.weight,s.origin_group,a.published_at,a.title,a.body_excerpt FROM event_articles ea JOIN articles a ON a.id=ea.article_id JOIN article_sightings sight ON sight.article_id=a.id JOIN sources s ON s.id=sight.source_id WHERE ea.event_id=$1 AND s.enabled ORDER BY s.weight DESC,a.detected_at,a.id,s.id LIMIT 32")
+        let evidence:Vec<SourceRow>=sqlx::query_as("SELECT a.id article_id,s.id source_id,s.name source_name,s.url source_url,a.url_canonical article_url,s.layer::text layer,s.kind,s.weight,s.origin_group,a.published_at,a.title,a.body_excerpt FROM event_articles ea JOIN articles a ON a.id=ea.article_id JOIN article_sightings sight ON sight.article_id=a.id JOIN sources s ON s.id=sight.source_id WHERE ea.event_id=$1 AND s.enabled AND NOT source_is_blocked(s.id) ORDER BY s.weight DESC,a.detected_at,a.id,s.id LIMIT 32")
             .bind(event).fetch_all(&self.pool).await.map_err(database_error)?;
         Ok(EditorialContext {
             event_id: row.id,
@@ -123,10 +139,15 @@ impl Store {
                 .transpose()
                 .map_err(|_| StoreError::InvalidJob)?,
             created_at: row.created_at,
-            kind: if row.parent_event_id.is_some() {
-                "update"
-            } else {
-                "new"
+            kind: match row.publication_kind.as_str() {
+                "new" => "new",
+                "update" => "update",
+                "correction" => "correction",
+                _ => return Err(StoreError::InvalidJob),
+            },
+            review: match row.review_id {
+                Some(id) => Some(self.review_record(id).await?),
+                None => None,
             },
             evidence: evidence
                 .into_iter()
@@ -161,13 +182,39 @@ impl Store {
         if owned.is_none() {
             return Err(StoreError::LostLease);
         }
-        let row:Row=sqlx::query_as("SELECT id,state,reason,content_revision,editorial_version,verified_revision,editorial_attempts,assessment_json,draft_json,created_at,parent_event_id FROM events WHERE id=$1 FOR UPDATE")
+        let row:Row=sqlx::query_as("SELECT id,state,reason,content_revision,editorial_version,verified_revision,editorial_attempts,assessment_json,draft_json,created_at,publication_kind,review_id FROM events WHERE id=$1 FOR UPDATE")
             .bind(context.event_id).fetch_one(&mut *tx).await.map_err(database_error)?;
         let state = EventState::parse(&row.state)?;
         if state.is_terminal() || matches!(state, EventState::Publishing | EventState::Published) {
             finish(&mut tx, job).await?;
             tx.commit().await.map_err(database_error)?;
             return Ok(EditorialOutcome::Finished);
+        }
+        let blocked: bool = sqlx::query_scalar("SELECT event_is_blocked($1)")
+            .bind(row.id)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(database_error)?;
+        if blocked {
+            terminal(&mut tx, row.id, "REJECTED", "policy_blocked").await?;
+            finish(&mut tx, job).await?;
+            tx.commit().await.map_err(database_error)?;
+            return Ok(EditorialOutcome::Finished);
+        }
+        if let Some(review) = &context.review {
+            let fresh: bool = sqlx::query_scalar("SELECT revision_evidence_fresh($1,$2,$3)")
+                .bind(row.id)
+                .bind(review.context.max_age_hours as i32)
+                .bind(review.context.dry_run)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(database_error)?;
+            if !fresh {
+                terminal(&mut tx, row.id, "SUPERSEDED", "source_revision_obsolete").await?;
+                finish(&mut tx, job).await?;
+                tx.commit().await.map_err(database_error)?;
+                return Ok(EditorialOutcome::Finished);
+            }
         }
         let stale = row.content_revision != context.revision
             || row
@@ -179,7 +226,7 @@ impl Store {
             } else {
                 sqlx::query("UPDATE events SET state='SUPERSEDED',reason='evidence_changed',editorial_version=editorial_version+1 WHERE id=$1")
                     .bind(row.id).execute(&mut *tx).await.map_err(database_error)?;
-                let child:i64=sqlx::query_scalar("INSERT INTO events(parent_event_id,primary_article_id,entities) SELECT parent_event_id,primary_article_id,entities FROM events WHERE id=$1 RETURNING id")
+                let child:i64=sqlx::query_scalar("INSERT INTO events(parent_event_id,primary_article_id,entities,publication_kind,review_id) SELECT parent_event_id,primary_article_id,entities,publication_kind,review_id FROM events WHERE id=$1 RETURNING id")
                     .bind(row.id).fetch_one(&mut *tx).await.map_err(database_error)?;
                 sqlx::query("INSERT INTO event_articles(event_id,article_id) SELECT $2,article_id FROM event_articles WHERE event_id=$1")
                     .bind(row.id).bind(child).execute(&mut *tx).await.map_err(database_error)?;
@@ -252,7 +299,9 @@ impl Store {
                 )
                 .await?;
             }
-            EditorialStep::Checked(report) if state == EventState::Drafted => {
+            EditorialStep::Checked(report)
+                if state == EventState::Drafted && row.review_id.is_none() =>
+            {
                 sqlx::query("UPDATE events SET state='CHECKED',reason=NULL,factcheck_json=$2,editorial_version=editorial_version+1 WHERE id=$1")
                     .bind(row.id).bind(serde_json::to_value(report).map_err(|_|StoreError::InvalidJob)?).execute(&mut *tx).await.map_err(database_error)?;
                 sqlx::query("INSERT INTO jobs(kind,dedupe_key,payload) VALUES('render',$1,$2) ON CONFLICT(dedupe_key) DO NOTHING")
@@ -262,6 +311,24 @@ impl Store {
                     row.id,
                     "draft_checked",
                     json!({"revision":row.content_revision}),
+                )
+                .await?;
+                finish(&mut tx, job).await?;
+                outcome = EditorialOutcome::Finished;
+            }
+            EditorialStep::CheckedRevision { report, review }
+                if state == EventState::Drafted && row.review_id.is_some() =>
+            {
+                if review.decision.publication_kind() != Some(row.publication_kind.as_str()) {
+                    return Err(StoreError::InvalidOptions);
+                }
+                sqlx::query("UPDATE events SET state='CHECKED',reason=NULL,factcheck_json=$2,editorial_version=editorial_version+1 WHERE id=$1").bind(row.id).bind(json!({"report":report,"review":review})).execute(&mut *tx).await.map_err(database_error)?;
+                sqlx::query("INSERT INTO jobs(kind,dedupe_key,payload) VALUES('render',$1,$2) ON CONFLICT(dedupe_key) DO NOTHING").bind(format!("render:{}:{}",row.id,row.content_revision)).bind(json!({"event_id":row.id,"revision":row.content_revision})).execute(&mut *tx).await.map_err(database_error)?;
+                audit(
+                    &mut tx,
+                    row.id,
+                    "revision_draft_checked",
+                    json!({"review_id":row.review_id,"revision":row.content_revision}),
                 )
                 .await?;
                 finish(&mut tx, job).await?;

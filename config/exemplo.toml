@@ -41,8 +41,35 @@ api_version = 'v27.0'
 login = 'facebook'
 dry_run = true
 
+[instagram.token]
+check_interval_s = 300
+warning_days = 7
+refresh_days = 30
+auto_refresh = true
+app_id = 'env:META_APP_ID'
+inspection_token = 'env:META_INSPECTION_TOKEN'
+page_id = 'env:FB_PAGE_ID'
+oauth_receipt = 'env:IG_TOKEN_RECEIPT'
+
+[corrections]
+enabled = false
+interval_s = 300
+window_hours = 24
+high_impact_hours = 72
+high_impact_score = 0.80
+max_sources = 4
+
+[publishing]
+# Ordem: impacto, novidade, confiabilidade, alcance, urgência.
+priority_weights = [0.30, 0.20, 0.20, 0.15, 0.15]
+enabled = true
+reserved_slots = 5
+
 [storage]
 bucket = 'stories-img'
+account_id = 'env:R2_ACCOUNT_ID'
+access_key = 'env:R2_ACCESS_KEY_ID'
+secret_key = 'env:R2_SECRET_ACCESS_KEY'
 ttl_minutes = 60
 
 [llm]

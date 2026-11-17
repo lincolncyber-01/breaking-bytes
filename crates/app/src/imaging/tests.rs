@@ -9,7 +9,7 @@ use testcontainers::{
     runners::AsyncRunner,
 };
 
-async fn seed(store: &Store, source: i32, index: i32, wide: bool) -> Result<i64> {
+pub(crate) async fn seed(store: &Store, source: i32, index: i32, wide: bool) -> Result<i64> {
     let mut draft = example_draft();
     if wide {
         draft.title = format!("{} lança nova versão", "W".repeat(24));
@@ -102,7 +102,7 @@ async fn seed(store: &Store, source: i32, index: i32, wide: bool) -> Result<i64>
     Ok(event)
 }
 
-async fn claim(store: &Store, event: i64, kind: &str) -> Result<Job> {
+pub(crate) async fn claim(store: &Store, event: i64, kind: &str) -> Result<Job> {
     Ok(sqlx::query_as("UPDATE jobs SET lease_token=$3,lease_until=now()+interval '120 seconds',attempts=attempts+1 WHERE id=(SELECT id FROM jobs WHERE kind=$2 AND payload->>'event_id'=$1 AND done_at IS NULL AND dead_at IS NULL AND (lease_until IS NULL OR lease_until<=now()) ORDER BY id LIMIT 1) RETURNING id,kind,payload,attempts,lease_token,lease_until")
         .bind(event.to_string()).bind(kind).bind(uuid::Uuid::new_v4()).fetch_one(store.pool()).await?)
 }
@@ -314,4 +314,15 @@ async fn checked_to_jpeg_is_durable_atomic_fenced_and_dry_run() -> Result<()> {
     store.close().await;
     tokio::fs::remove_dir_all(temporary).await?;
     Ok(())
+}
+
+/// Executa o render real em disco para os contratos de revisão.
+pub(crate) async fn render_fixture(settings: &Settings, store: &Store, event: i64) -> Result<()> {
+    let processor = Processor {
+        catalog: Catalog::default(),
+        renderer: Arc::new(Mutex::new(Renderer::new()?)),
+        http: HttpClient::shared("BreakingBytes/0.1", 2097152, 2)?,
+    };
+    let job = claim(store, event, "render").await?;
+    processor.process(settings, store, &job).await
 }

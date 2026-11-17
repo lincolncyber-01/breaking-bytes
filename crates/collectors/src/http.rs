@@ -94,6 +94,7 @@ impl HttpClient {
             .pool_idle_timeout(Duration::from_secs(60))
             .pool_max_idle_per_host(per_host)
             .redirect(reqwest::redirect::Policy::none())
+            .retry(reqwest::retry::never())
             .dns_resolver(Arc::new(PublicResolver))
             .build()
             .map_err(|_| HttpError::Network)?;
@@ -127,6 +128,7 @@ impl HttpClient {
             .no_proxy()
             .timeout(Duration::from_secs(1))
             .redirect(reqwest::redirect::Policy::none())
+            .retry(reqwest::retry::never())
             .build()
             .map_err(|_| HttpError::Network)?;
         value.local_origin = Some(origin.to_owned());

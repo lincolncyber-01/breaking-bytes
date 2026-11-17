@@ -84,6 +84,41 @@ impl Store {
             tx.commit().await.map_err(database_error)?;
             return Ok(RenderDisposition::Obsolete);
         }
+        let blocked: bool = sqlx::query_scalar("SELECT event_is_blocked($1)")
+            .bind(context.event_id)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(database_error)?;
+        if blocked {
+            sqlx::query("UPDATE events SET state='REJECTED',reason='policy_blocked' WHERE id=$1")
+                .bind(context.event_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(database_error)?;
+            let n=sqlx::query("UPDATE jobs SET done_at=now(),lease_token=NULL,lease_until=NULL,locked_at=NULL WHERE id=$1 AND lease_token=$2 AND lease_until>clock_timestamp()").bind(job.id).bind(job.lease_token).execute(&mut *tx).await.map_err(database_error)?.rows_affected();
+            if n != 1 {
+                return Err(StoreError::LostLease);
+            }
+            sqlx::query("INSERT INTO audit_log(event_id,step,detail) VALUES($1,'render_policy_blocked','{}')").bind(context.event_id).execute(&mut *tx).await.map_err(database_error)?;
+            tx.commit().await.map_err(database_error)?;
+            return Ok(RenderDisposition::Rejected);
+        }
+        if let Some(review) = &context.review {
+            let mode = artifact
+                .as_ref()
+                .map(|a| a.dry_run)
+                .unwrap_or(review.context.dry_run);
+            let fresh: bool = sqlx::query_scalar("SELECT revision_evidence_fresh($1,$2,$3)")
+                .bind(context.event_id)
+                .bind(review.context.max_age_hours as i32)
+                .bind(mode)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(database_error)?;
+            if !fresh {
+                return Err(StoreError::Conflict);
+            }
+        }
         let disposition = if let Some(artifact) = artifact {
             sqlx::query("INSERT INTO rendered_stories(event_id,revision,template,artifact_path,content_hash,byte_length,width,height,layout,image_provenance,dry_run) VALUES($1,$2,$3,$4,$5,$6,1080,1920,$7,$8,$9)")
                 .bind(context.event_id).bind(context.revision).bind(TEMPLATE).bind(artifact.path).bind(artifact.hash.as_slice()).bind(i64::try_from(artifact.bytes).map_err(|_|StoreError::InvalidOptions)?)
@@ -103,7 +138,7 @@ impl Store {
             RenderDisposition::Stored
         } else if row.editorial_attempts < i32::from(rewrite_limit) {
             sqlx::query("UPDATE events SET state='SUPERSEDED',reason=$2,editorial_version=editorial_version+1 WHERE id=$1").bind(context.event_id).bind(code).execute(&mut *tx).await.map_err(database_error)?;
-            let child:i64=sqlx::query_scalar("INSERT INTO events(parent_event_id,primary_article_id,entities) SELECT parent_event_id,primary_article_id,entities FROM events WHERE id=$1 RETURNING id").bind(context.event_id).fetch_one(&mut *tx).await.map_err(database_error)?;
+            let child:i64=sqlx::query_scalar("INSERT INTO events(parent_event_id,primary_article_id,entities,publication_kind,review_id) SELECT parent_event_id,primary_article_id,entities,publication_kind,review_id FROM events WHERE id=$1 RETURNING id").bind(context.event_id).fetch_one(&mut *tx).await.map_err(database_error)?;
             sqlx::query("INSERT INTO event_articles(event_id,article_id) SELECT $2,article_id FROM event_articles WHERE event_id=$1").bind(context.event_id).bind(child).execute(&mut *tx).await.map_err(database_error)?;
             sqlx::query("UPDATE events SET state='CLUSTERED' WHERE id=$1")
                 .bind(child)

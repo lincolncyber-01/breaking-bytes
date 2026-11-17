@@ -372,3 +372,111 @@ async fn hackernews_uses_item_endpoint_and_filters_dead_items()
     assert_eq!(batch.articles.len(), 1);
     Ok(())
 }
+
+#[tokio::test]
+async fn revisits_old_article_and_never_infers_retraction_from_404()
+-> Result<(), Box<dyn std::error::Error>> {
+    let server = MockServer::start().await;
+    Mock::given(path("/robots.txt"))
+        .respond_with(ResponseTemplate::new(200).set_body_string("User-agent: *\nAllow: /\n"))
+        .mount(&server)
+        .await;
+    Mock::given(path("/old")).respond_with(ResponseTemplate::new(200).set_body_string("<title>Rust</title><meta property='article:published_time' content='2020-01-01T00:00:00Z'><article>Correção: saldo -10.</article>")).mount(&server).await;
+    Mock::given(path("/gone"))
+        .respond_with(ResponseTemplate::new(404))
+        .mount(&server)
+        .await;
+    Mock::given(path("/moved")).respond_with(ResponseTemplate::new(200).set_body_string("<title>Rust</title><link rel='canonical' href='/elsewhere'><article>Correction: saldo -10.</article>")).mount(&server).await;
+    let collector = Collector::new(http::HttpClient::local(&server.uri(), 2097152)?, 20, 168)?;
+    let fresh = collector
+        .revisit(
+            SourceKind::Rss,
+            &server.uri(),
+            &format!("{}/old", server.uri()),
+            Utc::now(),
+        )
+        .await?
+        .ok_or("reconsulta ausente")?;
+    assert_eq!(fresh.notice.as_deref(), Some("Correção: saldo -10."));
+    assert_eq!(
+        fresh.article.published_at.map(|d| d.to_rfc3339()),
+        Some("2020-01-01T00:00:00+00:00".into())
+    );
+    for route in ["gone", "moved"] {
+        assert!(
+            collector
+                .revisit(
+                    SourceKind::Rss,
+                    &server.uri(),
+                    &format!("{}/{route}", server.uri()),
+                    Utc::now()
+                )
+                .await?
+                .is_none()
+        );
+    }
+    assert!(
+        collector
+            .revisit(
+                SourceKind::Hackernews,
+                &server.uri(),
+                &server.uri(),
+                Utc::now()
+            )
+            .await?
+            .is_none()
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn api_revisit_keeps_old_release_date_and_late_notice_without_news_age_filter()
+-> Result<(), Box<dyn std::error::Error>> {
+    let server = MockServer::start().await;
+    Mock::given(path("/robots.txt"))
+        .respond_with(ResponseTemplate::new(200).set_body_string("User-agent: *\nAllow: /\n"))
+        .mount(&server)
+        .await;
+    let release = "https://github.com/rust-lang/rust/releases/tag/1.100";
+    Mock::given(path("/github")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([{"html_url":release,"name":"Rust 1.100","tag_name":"1.100","body":format!("{} Correction: a versão é 1.101.","Release antigo. ".repeat(300)),"published_at":"2020-01-01T00:00:00Z","draft":false}]))).mount(&server).await;
+    let collector = Collector::new(http::HttpClient::local(&server.uri(), 2097152)?, 20, 6)?;
+    let source = format!("{}/github", server.uri());
+    assert!(
+        collector
+            .collect(
+                SourceKind::Github,
+                &source,
+                &Validators::default(),
+                Utc::now()
+            )
+            .await?
+            .articles
+            .is_empty()
+    );
+    let revision = collector
+        .revisit(SourceKind::Github, &source, release, Utc::now())
+        .await?
+        .ok_or("release antigo deve poder ser reconsultado")?;
+    assert_eq!(
+        revision.article.published_at.map(|d| d.to_rfc3339()),
+        Some("2020-01-01T00:00:00+00:00".into())
+    );
+    assert_eq!(
+        revision.notice.as_deref(),
+        Some("Correction: a versão é 1.101.")
+    );
+    assert!(revision.article.excerpt.starts_with("Correction:"));
+    assert!(revision.article.excerpt.chars().count() <= 2000);
+    assert!(
+        collector
+            .revisit(
+                SourceKind::Github,
+                &source,
+                "https://github.com/rust-lang/rust/releases/tag/absent",
+                Utc::now()
+            )
+            .await?
+            .is_none()
+    );
+    Ok(())
+}

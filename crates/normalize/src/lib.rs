@@ -80,6 +80,13 @@ pub fn plain_text(html: &str, max_chars: usize) -> Result<String, NormalizeError
     if html.len() > 2_097_152 || max_chars > 16_384 {
         return Err(NormalizeError::Limits);
     }
+    plain_text_limit(html, max_chars)
+}
+
+fn plain_text_limit(html: &str, max_chars: usize) -> Result<String, NormalizeError> {
+    if html.len() > 2_097_152 {
+        return Err(NormalizeError::Limits);
+    }
     let document = Html::parse_fragment(html);
     if document
         .tree
@@ -169,6 +176,59 @@ pub fn article_evidence(base: &Url, body: &str) -> Result<CapturedArticle, Norma
     article.title = plain_text(&article.title, 512)?;
     article.excerpt = plain_text(&article.excerpt, 2000)?;
     Ok(article)
+}
+
+/// Nota é apenas sinal: a confirmação semântica e a checagem ocorrem depois.
+pub fn revision_notice(text: &str) -> Result<Option<String>, NormalizeError> {
+    if text.len() > 2_097_152 {
+        return Err(NormalizeError::Limits);
+    }
+    let clean = plain_text_limit(text, 2_097_152)?;
+    let marker=Regex::new(r"(?i)\b(?:correction|correção|correcao|retraction|retratação|retratacao|retracted|corrigendum|erratum)\s*:").map_err(|_|NormalizeError::Selector)?;
+    Ok(marker
+        .find(&clean)
+        .map(|m| clean[m.start()..].chars().take(500).collect()))
+}
+
+pub fn article_revision(
+    base: &Url,
+    body: &str,
+) -> Result<stories_core::CapturedRevision, NormalizeError> {
+    let mut article = article_evidence(base, body)?;
+    let document = Html::parse_document(body);
+    let root = document.select(&selector("article,main")?).next();
+    let notice = if let Some(root) = root {
+        let explicit =
+            selector("[class*='correction'],[class*='retraction'],[itemprop='correction']")?;
+        let mut note = None;
+        for element in root.select(&explicit).take(4) {
+            let text = plain_text(&element.html(), 500)?;
+            if !text.trim().is_empty() {
+                note = Some(text);
+                break;
+            }
+        }
+        note.or(revision_notice(&root.html())?)
+    } else {
+        revision_notice(&article.excerpt)?
+    };
+    if let Some(ref notice) = notice
+        && !article.excerpt.contains(notice)
+    {
+        // A nota do rodapé continua disponível ao verificador dentro dos 2.000 caracteres.
+        let body = article.excerpt.chars().take(1499).collect::<String>();
+        article.excerpt = format!("{notice}\n{body}");
+    }
+    Ok(stories_core::CapturedRevision { article, notice })
+}
+
+/// Comparação conserva pontuação e sinal numérico; só normaliza espaços e NFC.
+pub fn revision_text(text: &str) -> String {
+    text.nfc()
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn selector(value: &str) -> Result<Selector, NormalizeError> {

@@ -91,6 +91,17 @@ impl Collector {
         validators: &Validators,
         now: DateTime<Utc>,
     ) -> Result<Batch, CollectorError> {
+        self.collect_with_age(kind, url, validators, now, true)
+            .await
+    }
+    async fn collect_with_age(
+        &self,
+        kind: SourceKind,
+        url: &str,
+        validators: &Validators,
+        now: DateTime<Utc>,
+        enforce_age: bool,
+    ) -> Result<Batch, CollectorError> {
         let response = self.http.get(url, validators).await?;
         if response.status == 304 {
             return Ok(Batch {
@@ -147,13 +158,15 @@ impl Collector {
             })
             .await?
         };
-        articles.retain(|a| {
-            (kind == SourceKind::Sitemap && a.published_at.is_none())
-                || a.published_at.is_some_and(|date| {
-                    date <= now + chrono::Duration::minutes(5)
-                        && date >= now - chrono::Duration::hours(i64::from(self.max_age_hours))
-                })
-        });
+        if enforce_age {
+            articles.retain(|a| {
+                (kind == SourceKind::Sitemap && a.published_at.is_none())
+                    || a.published_at.is_some_and(|date| {
+                        date <= now + chrono::Duration::minutes(5)
+                            && date >= now - chrono::Duration::hours(i64::from(self.max_age_hours))
+                    })
+            });
+        }
         // Sitemaps comuns não têm manchete: buscar metadados respeitando robots e SSRF.
         if kind == SourceKind::Sitemap {
             for article in &mut articles {
@@ -180,17 +193,84 @@ impl Collector {
                 }
             }
         }
-        articles.retain(|a| {
-            a.published_at.is_some_and(|date| {
-                date <= now + chrono::Duration::minutes(5)
-                    && date >= now - chrono::Duration::hours(i64::from(self.max_age_hours))
-            })
-        });
+        if enforce_age {
+            articles.retain(|a| {
+                a.published_at.is_some_and(|date| {
+                    date <= now + chrono::Duration::minutes(5)
+                        && date >= now - chrono::Duration::hours(i64::from(self.max_age_hours))
+                })
+            });
+        }
         Ok(Batch {
             articles,
             validators: response.validators,
             not_modified: false,
         })
+    }
+
+    /// Reconsulta de fonte publicada: limite de idade é o da janela de acompanhamento.
+    pub async fn revisit(
+        &self,
+        kind: SourceKind,
+        source_url: &str,
+        article_url: &str,
+        now: DateTime<Utc>,
+    ) -> Result<Option<stories_core::CapturedRevision>, CollectorError> {
+        if kind == SourceKind::Hackernews {
+            return Ok(None);
+        }
+        if matches!(kind, SourceKind::Rss | SourceKind::Sitemap) {
+            let page = self.http.get(article_url, &Validators::default()).await?;
+            if page.status != 200 {
+                return Ok(None);
+            }
+            let captured = self
+                .cpu_work(move || {
+                    let text =
+                        std::str::from_utf8(&page.body).map_err(|_| CollectorError::Parse)?;
+                    stories_normalize::article_revision(&page.url, text)
+                        .map_err(|_| CollectorError::Parse)
+                })
+                .await?;
+            let expected =
+                stories_normalize::canonical_url(article_url).map_err(|_| CollectorError::Parse)?;
+            if captured.article.url != expected.as_str() {
+                return Ok(None);
+            }
+            Ok(Some(captured))
+        } else {
+            let batch = self
+                .collect_with_age(kind, source_url, &Validators::default(), now, false)
+                .await?;
+            let expected =
+                stories_normalize::canonical_url(article_url).map_err(|_| CollectorError::Parse)?;
+            let found = batch
+                .articles
+                .into_iter()
+                .find(|a| stories_normalize::canonical_url(&a.url).is_ok_and(|u| u == expected));
+            self.cpu_work(move || {
+                found
+                    .map(|mut article| {
+                        let notice = stories_normalize::revision_notice(&article.excerpt)
+                            .map_err(|_| CollectorError::Parse)?;
+                        article.title = stories_normalize::plain_text(&article.title, 512)
+                            .map_err(|_| CollectorError::Parse)?;
+                        article.excerpt = stories_normalize::plain_text(&article.excerpt, 2000)
+                            .map_err(|_| CollectorError::Parse)?;
+                        if let Some(ref note) = notice
+                            && !article.excerpt.contains(note)
+                        {
+                            article.excerpt = format!(
+                                "{note}\n{}",
+                                article.excerpt.chars().take(1499).collect::<String>()
+                            );
+                        }
+                        Ok(stories_core::CapturedRevision { article, notice })
+                    })
+                    .transpose()
+            })
+            .await
+        }
     }
 
     /// Confirma data de publicação e material na origem antes de liberar a redação.

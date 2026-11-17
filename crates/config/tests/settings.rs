@@ -111,3 +111,114 @@ fn imaging_limits_paths_and_manifest_are_validated() -> Result<(), Box<dyn std::
     }
     Ok(())
 }
+
+#[test]
+fn live_publisher_requires_r2_but_disabled_llm_needs_no_key()
+-> Result<(), Box<dyn std::error::Error>> {
+    let mut config = settings()?;
+    config.instagram.dry_run = false;
+    let secrets = config.resolve_with(|name| match name {
+        "DATABASE_URL" => Some("postgres://localhost/stories".into()),
+        "ADMIN_TOKEN" => Some("a".repeat(32)),
+        "IG_USER_ID" | "META_APP_ID" => Some("123".into()),
+        "IG_ACCESS_TOKEN"
+        | "META_INSPECTION_TOKEN"
+        | "R2_ACCESS_KEY_ID"
+        | "R2_SECRET_ACCESS_KEY" => Some("fixture-only".into()),
+        "R2_ACCOUNT_ID" => Some("a".repeat(32)),
+        _ => None,
+    })?;
+    assert!(secrets.llm_key.is_none());
+    assert!(secrets.r2_secret.is_some());
+    assert!(!format!("{secrets:?}").contains("fixture-only"));
+    Ok(())
+}
+
+#[test]
+fn token_credentials_follow_login_and_timing_bounds() -> Result<(), Box<dyn std::error::Error>> {
+    let mut config = settings()?;
+    config.instagram.dry_run = false;
+    config.instagram.login = stories_config::Login::Instagram;
+    let lookup = |name: &str| match name {
+        "DATABASE_URL" => Some("postgres://localhost/stories".into()),
+        "ADMIN_TOKEN" => Some("a".repeat(32)),
+        "IG_USER_ID" => Some("123".into()),
+        "IG_ACCESS_TOKEN" | "R2_ACCESS_KEY_ID" | "R2_SECRET_ACCESS_KEY" => {
+            Some("fixture-only".into())
+        }
+        "R2_ACCOUNT_ID" => Some("a".repeat(32)),
+        "IG_TOKEN_RECEIPT" => Some("fixture-receipt".into()),
+        _ => None,
+    };
+    let secrets = config.resolve_with(lookup)?;
+    assert!(secrets.meta_inspection_token.is_none());
+    assert!(secrets.instagram_token_receipt.is_some());
+    assert!(
+        config
+            .resolve_with(|name| if name == "IG_TOKEN_RECEIPT" {
+                None
+            } else {
+                lookup(name)
+            })
+            .is_err()
+    );
+    config.instagram.login = stories_config::Login::Facebook;
+    assert!(config.resolve_with(lookup).is_err());
+    config.instagram.dry_run = true;
+    config.resolve_with(|name| match name {
+        "DATABASE_URL" => Some("postgres://localhost/stories".into()),
+        "ADMIN_TOKEN" => Some("a".repeat(32)),
+        _ => None,
+    })?;
+    for invalid in [0, 59, 301] {
+        config.instagram.token.check_interval_s = invalid;
+        assert!(config.validate().is_err());
+    }
+    config.instagram.token.check_interval_s = 300;
+    config.instagram.token.refresh_days = 31;
+    assert!(config.validate().is_err());
+    config.instagram.token.refresh_days = 30;
+    config.instagram.token.inspection_token = "plaintext-secret".into();
+    assert!(config.validate().is_err());
+    Ok(())
+}
+
+#[test]
+fn correction_windows_and_bounds_are_validated() -> Result<(), Box<dyn std::error::Error>> {
+    let config = settings()?;
+    assert!(!config.corrections.enabled);
+    assert_eq!(config.corrections.window_hours, 24);
+    assert_eq!(config.corrections.high_impact_hours, 72);
+    for mutation in 0..8 {
+        let mut bad = config.clone();
+        match mutation {
+            0 => bad.corrections.interval_s = 59,
+            1 => bad.corrections.interval_s = 3601,
+            2 => bad.corrections.window_hours = 0,
+            3 => bad.corrections.high_impact_hours = 23,
+            4 => bad.corrections.high_impact_hours = 169,
+            5 => bad.corrections.high_impact_score = f64::NAN,
+            6 => bad.corrections.max_sources = 0,
+            _ => bad.corrections.max_sources = 5,
+        };
+        assert!(bad.validate().is_err());
+    }
+    Ok(())
+}
+
+#[test]
+fn priority_weights_must_form_a_finite_distribution() -> Result<(), Box<dyn std::error::Error>> {
+    let mut config = settings()?;
+    for weights in [
+        [0.0; 5],
+        [1.0; 5],
+        [f64::NAN, 0.2, 0.2, 0.2, 0.2],
+        [-0.1, 0.3, 0.3, 0.3, 0.2],
+    ] {
+        config.publishing.priority_weights = weights;
+        assert!(config.validate().is_err());
+    }
+    config.publishing.priority_weights = [1.0, 0.0, 0.0, 0.0, 0.0];
+    config.validate()?;
+    Ok(())
+}

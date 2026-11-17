@@ -8,20 +8,30 @@ use axum::{
     http::{StatusCode, header::AUTHORIZATION},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::{get, put},
+    routing::{get, post, put},
 };
 use serde::{Deserialize, Serialize};
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration,
+};
 use stories_config::Secret;
 use stories_store::Store;
 use subtle::ConstantTimeEq;
 use tower::{ServiceBuilder, limit::ConcurrencyLimitLayer};
 
+mod admin;
 pub mod collection;
 mod editorial;
 pub mod evaluation;
 pub mod imaging;
 pub mod pipeline;
+pub mod publication;
+mod revisions;
+pub mod token;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -31,6 +41,11 @@ pub struct AppState {
     pub collection_enabled: bool,
     pub editorial_enabled: bool,
     pub imaging_enabled: bool,
+    pub publishing_enabled: bool,
+    pub corrections_enabled: bool,
+    pub publisher_admin: Arc<publication::AdminPublisher>,
+    pub publishing_ready: Arc<AtomicBool>,
+    pub token_state: Arc<token::TokenState>,
 }
 
 pub fn router(state: AppState) -> Router {
@@ -38,6 +53,8 @@ pub fn router(state: AppState) -> Router {
     let admin = Router::new()
         .route("/status", get(status))
         .route("/pause", put(pause))
+        .route("/blocklist", get(admin::rules).put(admin::change_rule))
+        .route("/publications/{id}/resolve", post(admin::resolve))
         .route_layer(middleware::from_fn_with_state(state.clone(), authorize));
     Router::new()
         .route(
@@ -89,7 +106,11 @@ struct Readiness {
 }
 
 async fn ready(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let healthy = state.store.health().await.is_ok() && state.dry_run;
+    let healthy = state.store.health().await.is_ok()
+        && (state.dry_run
+            || state.publishing_enabled
+                && state.publishing_ready.load(Ordering::Relaxed)
+                && state.token_state.allowed().await);
     let code = if healthy {
         StatusCode::OK
     } else {
@@ -99,7 +120,9 @@ async fn ready(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         code,
         Json(Readiness {
             status: if healthy { "ready" } else { "not_ready" },
-            scope: if state.imaging_enabled {
+            scope: if state.publishing_enabled {
+                "publication"
+            } else if state.imaging_enabled {
                 "imaging"
             } else if state.editorial_enabled {
                 "editorial"
@@ -116,10 +139,14 @@ async fn ready(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 async fn status(State(state): State<Arc<AppState>>) -> Response {
     match state.store.paused().await {
         Ok(paused) => Json(serde_json::json!({
-            "paused": paused, "dry_run": state.dry_run, "phase": 4,
+            "paused": paused, "dry_run": state.dry_run, "phase": 5,
             "collection_enabled":state.collection_enabled,"clustering_mode":"hash_entities",
             "editorial_enabled":state.editorial_enabled,"imaging_enabled":state.imaging_enabled,
-            "pipeline_available": false,
+            "publishing_enabled": state.publishing_enabled,
+            "corrections_enabled": state.corrections_enabled,
+            "publishing_ready":state.publishing_ready.load(Ordering::Relaxed),
+            "token_health":state.token_state.view().await,
+            "pipeline_available": state.publishing_enabled,
         }))
         .into_response(),
         Err(_) => StatusCode::SERVICE_UNAVAILABLE.into_response(),

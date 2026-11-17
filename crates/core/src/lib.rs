@@ -1,5 +1,8 @@
 //! Tipos de domínio e invariantes compartilhadas pelo pipeline.
 
+pub mod policy;
+pub mod token;
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -11,6 +14,14 @@ pub struct CapturedArticle {
     pub excerpt: String,
     pub image_url: Option<String>,
     pub published_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+/// Reconsulta conserva publicação original e separa a nota editorial do trecho comum.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CapturedRevision {
+    pub article: CapturedArticle,
+    pub notice: Option<String>,
 }
 
 /// Estados persistidos com os nomes definidos no blueprint.
