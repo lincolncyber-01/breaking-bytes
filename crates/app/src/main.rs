@@ -1,0 +1,119 @@
+//! Inicialização sem exibir configurações, DSNs ou cadeias de erro externas.
+
+use anyhow::{Context, Result};
+use std::{
+    io::{Read, Write},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream},
+    path::Path,
+    time::Duration,
+};
+use stories_app::{AppState, router};
+use stories_config::Settings;
+use stories_store::Store;
+use tokio::net::TcpListener;
+use tracing_subscriber::{EnvFilter, prelude::*};
+
+fn main() -> Result<()> {
+    tracing_subscriber::registry()
+        .with(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info,sqlx=warn")),
+        )
+        .with(tracing_subscriber::fmt::layer().json().with_target(false))
+        .try_init()
+        .map_err(|_| anyhow::anyhow!("não foi possível inicializar os logs"))?;
+    let config_path =
+        std::env::var("STORIES_CONFIG").unwrap_or_else(|_| "config/exemplo.toml".into());
+    let sources_path =
+        std::env::var("STORIES_SOURCES").unwrap_or_else(|_| "config/sources.toml".into());
+    let settings = Settings::load(Path::new(&config_path), Path::new(&sources_path))?;
+    if std::env::args().any(|arg| arg == "--healthcheck") {
+        return healthcheck(settings.admin.bind);
+    }
+    let secrets = settings.resolve_secrets()?;
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .context("não foi possível criar o runtime")?;
+    runtime.block_on(async move {
+        let store = Store::connect(
+            secrets.database_url.expose(),
+            settings.database.max_connections,
+            Duration::from_secs(settings.database.timeout_s),
+        )
+        .await?;
+        if std::env::args().any(|arg| arg == "--migrate") {
+            store.migrate().await?;
+            tracing::info!("migrations aplicadas");
+            store.close().await;
+            return Ok(());
+        }
+        // Readiness exige schema instalado; migrations são um passo separado no deploy.
+        store
+            .paused()
+            .await
+            .context("schema indisponível; execute --migrate antes de iniciar")?;
+        let listener = TcpListener::bind(settings.admin.bind)
+            .await
+            .context("não foi possível abrir a Admin API")?;
+        let app = router(AppState {
+            store: store.clone(),
+            admin_token: secrets.admin_token,
+            dry_run: settings.instagram.dry_run,
+        });
+        tracing::info!(bind = %settings.admin.bind, dry_run = settings.instagram.dry_run,
+            phase = 1, "fundação iniciada; pipeline de notícias ainda indisponível");
+        let result = axum::serve(listener, app)
+            .with_graceful_shutdown(shutdown())
+            .await;
+        store.close().await;
+        result.context("servidor administrativo encerrou com falha")
+    })
+}
+
+/// Sonda local executada antes do runtime, inclusive na imagem sem shell ou curl.
+fn healthcheck(mut address: SocketAddr) -> Result<()> {
+    if address.ip().is_unspecified() {
+        address.set_ip(match address.ip() {
+            IpAddr::V4(_) => IpAddr::V4(Ipv4Addr::LOCALHOST),
+            IpAddr::V6(_) => IpAddr::V6(Ipv6Addr::LOCALHOST),
+        });
+    }
+    let timeout = Some(Duration::from_secs(2));
+    let mut stream = TcpStream::connect_timeout(&address, Duration::from_secs(2))
+        .context("health check não conseguiu conectar à API local")?;
+    stream.set_read_timeout(timeout)?;
+    stream.set_write_timeout(timeout)?;
+    stream
+        .write_all(b"GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")?;
+    let mut response = String::new();
+    stream.take(512).read_to_string(&mut response)?;
+    if !response.starts_with("HTTP/1.1 200 ") {
+        anyhow::bail!("readiness local não está saudável");
+    }
+    Ok(())
+}
+
+async fn shutdown() {
+    #[cfg(unix)]
+    {
+        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+            Ok(mut signal) => {
+                tokio::select! {
+                    result = tokio::signal::ctrl_c() => {
+                        if result.is_err() { tracing::error!("falha ao escutar SIGINT"); }
+                    }
+                    _ = signal.recv() => {}
+                }
+            }
+            Err(_) => {
+                tracing::error!("falha ao escutar SIGTERM");
+                let _ = tokio::signal::ctrl_c().await;
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = tokio::signal::ctrl_c().await;
+    }
+    tracing::info!("shutdown gracioso solicitado");
+}

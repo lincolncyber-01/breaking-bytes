@@ -1,0 +1,122 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 506B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for gcr.io/distroless/cc-debian12:nonroot
+#2 DONE 0.9s
+
+#3 [internal] load metadata for docker.io/library/rust:1.100.0-slim-bookworm
+#3 DONE 1.5s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 83B done
+#4 DONE 0.0s
+
+#5 [stage-1 1/4] FROM gcr.io/distroless/cc-debian12:nonroot@sha256:9dac0a79194e45a7da0158a9c6da57b217585af0786db3845d1f0ec1a0dd182f
+#5 resolve gcr.io/distroless/cc-debian12:nonroot@sha256:9dac0a79194e45a7da0158a9c6da57b217585af0786db3845d1f0ec1a0dd182f 0.0s done
+#5 ...
+
+#6 [internal] load build context
+#6 transferring context: 144.53kB 0.1s done
+#6 DONE 0.1s
+
+#5 [stage-1 1/4] FROM gcr.io/distroless/cc-debian12:nonroot@sha256:9dac0a79194e45a7da0158a9c6da57b217585af0786db3845d1f0ec1a0dd182f
+#5 sha256:9dac0a79194e45a7da0158a9c6da57b217585af0786db3845d1f0ec1a0dd182f 1.51kB / 1.51kB done
+#5 sha256:311bdcc0a31d987b7fe9e3ea5fb941b7c0fb849e985724105e19c226bca2976c 3.98kB / 3.98kB done
+#5 sha256:a5789fc40e828c4e7467626e3f69ec5dea8e5da22fe660db8ae6d16f777b0bbf 0B / 83.90kB 0.2s
+#5 sha256:990a9c434e5e0f11549a8d4a41a1991e621b04e30cd63269adbc97b1dc38fd7e 0B / 12.48kB 0.2s
+#5 sha256:39dc083afc39bd8dc43d456fe7ff7d39292e593bb2769972c11bb2e5f9119386 0B / 445.71kB 0.2s
+#5 sha256:777e96cf322c46bc32aca926c263624c4dc8d7cf37e2fa65ba2c7e697318ebbb 3.82kB / 3.82kB done
+#5 sha256:a5789fc40e828c4e7467626e3f69ec5dea8e5da22fe660db8ae6d16f777b0bbf 83.90kB / 83.90kB 0.3s
+#5 sha256:990a9c434e5e0f11549a8d4a41a1991e621b04e30cd63269adbc97b1dc38fd7e 12.48kB / 12.48kB 0.2s done
+#5 sha256:bf7a4185f01524837d19abde915ffde84e64368b250f5b5e9f6f75aea62a11d4 0B / 29.00kB 0.3s
+#5 extracting sha256:a5789fc40e828c4e7467626e3f69ec5dea8e5da22fe660db8ae6d16f777b0bbf
+#5 sha256:a5789fc40e828c4e7467626e3f69ec5dea8e5da22fe660db8ae6d16f777b0bbf 83.90kB / 83.90kB 0.3s done
+#5 extracting sha256:a5789fc40e828c4e7467626e3f69ec5dea8e5da22fe660db8ae6d16f777b0bbf done
+#5 sha256:2780920e5dbfbe103d03a583ed75345306e572ec5a48cb10361f046767d9f29a 0B / 67B 0.4s
+#5 extracting sha256:990a9c434e5e0f11549a8d4a41a1991e621b04e30cd63269adbc97b1dc38fd7e
+#5 sha256:39dc083afc39bd8dc43d456fe7ff7d39292e593bb2769972c11bb2e5f9119386 445.71kB / 445.71kB 0.4s done
+#5 sha256:2780920e5dbfbe103d03a583ed75345306e572ec5a48cb10361f046767d9f29a 67B / 67B 0.4s done
+#5 extracting sha256:990a9c434e5e0f11549a8d4a41a1991e621b04e30cd63269adbc97b1dc38fd7e done
+#5 sha256:7c12895b777bcaa8ccae0605b4de635b68fc32d60fa08f421dc3818bf55ee212 0B / 188B 0.6s
+#5 sha256:3214acf345c0cc6bbdb56b698a41ccdefc624a09d6beb0d38b5de0b2303ecaf4 0B / 123B 0.6s
+#5 extracting sha256:39dc083afc39bd8dc43d456fe7ff7d39292e593bb2769972c11bb2e5f9119386
+#5 sha256:bf7a4185f01524837d19abde915ffde84e64368b250f5b5e9f6f75aea62a11d4 29.00kB / 29.00kB 0.6s done
+#5 sha256:7c12895b777bcaa8ccae0605b4de635b68fc32d60fa08f421dc3818bf55ee212 188B / 188B 0.6s done
+#5 sha256:3214acf345c0cc6bbdb56b698a41ccdefc624a09d6beb0d38b5de0b2303ecaf4 123B / 123B 0.7s done
+#5 sha256:b839dfae01f66e15c6a8b63520557ed315bdfe036342fa7a0c537259f10d7a9a 0B / 351B 0.8s
+#5 sha256:dd64bf2dd177757451a98fcdc999a339c35dee5d9872d8f4dc69c8f3c4dd0112 80B / 80B 0.8s done
+#5 sha256:52630fc75a18675c530ed9eba5f55eca09b03e91bd5bc15307918bbc1a7e7296 162B / 162B 0.7s done
+#5 sha256:dcaa5a89b0ccda4b283e16d0b4d0891cd93d5fe05c6798f7806781a6a2d84354 0B / 314B 0.8s
+#5 sha256:96ed2737ae312e0bc637b40783f7c2f23416cb72ca957aa01855f1614278e64b 0B / 143.35kB 0.8s
+#5 sha256:b839dfae01f66e15c6a8b63520557ed315bdfe036342fa7a0c537259f10d7a9a 351B / 351B 0.9s done
+#5 sha256:dcaa5a89b0ccda4b283e16d0b4d0891cd93d5fe05c6798f7806781a6a2d84354 314B / 314B 0.9s done
+#5 sha256:235c3625d753c5b8a741210c2e7fb26b47a0d02cf49acc631a38dcf847eedf89 0B / 4.95MB 1.0s
+#5 sha256:dc0fb75e565a59a5824baedc9645656d17bc91c4b31332ee179580fa9f60eacd 0B / 2.51MB 1.0s
+#5 extracting sha256:39dc083afc39bd8dc43d456fe7ff7d39292e593bb2769972c11bb2e5f9119386 0.6s done
+#5 sha256:96ed2737ae312e0bc637b40783f7c2f23416cb72ca957aa01855f1614278e64b 143.35kB / 143.35kB 1.1s done
+#5 sha256:336f6c853c4e7eaa77938f48c9b7ce98841916930fb3da435f7ca69586fe5853 0B / 133.53kB 1.2s
+#5 sha256:235c3625d753c5b8a741210c2e7fb26b47a0d02cf49acc631a38dcf847eedf89 2.10MB / 4.95MB 1.3s
+#5 sha256:235c3625d753c5b8a741210c2e7fb26b47a0d02cf49acc631a38dcf847eedf89 4.95MB / 4.95MB 1.4s done
+#5 sha256:dc0fb75e565a59a5824baedc9645656d17bc91c4b31332ee179580fa9f60eacd 2.51MB / 2.51MB 1.4s done
+#5 sha256:336f6c853c4e7eaa77938f48c9b7ce98841916930fb3da435f7ca69586fe5853 133.53kB / 133.53kB 1.4s done
+#5 sha256:a812c900745ef51faf67489acb703c178411510edf7e0ab31af973e08567afb0 0B / 57.20kB 1.5s
+#5 sha256:1e8acdaa260712eac85de25745cd44440065e108314a5d02c01a6678d4b75143 0B / 779.47kB 1.5s
+#5 sha256:b16bb3b2bd07785f19e8c72faf8106454371bff33191bdb4480fd8d9455b7472 0B / 40.31kB 1.5s
+#5 sha256:a812c900745ef51faf67489acb703c178411510edf7e0ab31af973e08567afb0 57.20kB / 57.20kB 1.6s
+#5 extracting sha256:bf7a4185f01524837d19abde915ffde84e64368b250f5b5e9f6f75aea62a11d4 done
+#5 sha256:a812c900745ef51faf67489acb703c178411510edf7e0ab31af973e08567afb0 57.20kB / 57.20kB 1.6s done
+#5 sha256:1e8acdaa260712eac85de25745cd44440065e108314a5d02c01a6678d4b75143 779.47kB / 779.47kB 1.7s done
+#5 sha256:b16bb3b2bd07785f19e8c72faf8106454371bff33191bdb4480fd8d9455b7472 40.31kB / 40.31kB 1.6s done
+#5 extracting sha256:2780920e5dbfbe103d03a583ed75345306e572ec5a48cb10361f046767d9f29a done
+#5 extracting sha256:7c12895b777bcaa8ccae0605b4de635b68fc32d60fa08f421dc3818bf55ee212
+#5 extracting sha256:7c12895b777bcaa8ccae0605b4de635b68fc32d60fa08f421dc3818bf55ee212 done
+#5 extracting sha256:3214acf345c0cc6bbdb56b698a41ccdefc624a09d6beb0d38b5de0b2303ecaf4 done
+#5 extracting sha256:52630fc75a18675c530ed9eba5f55eca09b03e91bd5bc15307918bbc1a7e7296 done
+#5 extracting sha256:dd64bf2dd177757451a98fcdc999a339c35dee5d9872d8f4dc69c8f3c4dd0112 done
+#5 extracting sha256:b839dfae01f66e15c6a8b63520557ed315bdfe036342fa7a0c537259f10d7a9a done
+#5 extracting sha256:dcaa5a89b0ccda4b283e16d0b4d0891cd93d5fe05c6798f7806781a6a2d84354 done
+#5 extracting sha256:96ed2737ae312e0bc637b40783f7c2f23416cb72ca957aa01855f1614278e64b
+#5 extracting sha256:96ed2737ae312e0bc637b40783f7c2f23416cb72ca957aa01855f1614278e64b 0.0s done
+#5 extracting sha256:235c3625d753c5b8a741210c2e7fb26b47a0d02cf49acc631a38dcf847eedf89
+#5 extracting sha256:235c3625d753c5b8a741210c2e7fb26b47a0d02cf49acc631a38dcf847eedf89 1.3s done
+#5 extracting sha256:dc0fb75e565a59a5824baedc9645656d17bc91c4b31332ee179580fa9f60eacd
+#5 extracting sha256:dc0fb75e565a59a5824baedc9645656d17bc91c4b31332ee179580fa9f60eacd 0.8s done
+#5 extracting sha256:336f6c853c4e7eaa77938f48c9b7ce98841916930fb3da435f7ca69586fe5853 0.1s done
+#5 extracting sha256:1e8acdaa260712eac85de25745cd44440065e108314a5d02c01a6678d4b75143
+#5 extracting sha256:1e8acdaa260712eac85de25745cd44440065e108314a5d02c01a6678d4b75143 0.3s done
+#5 extracting sha256:a812c900745ef51faf67489acb703c178411510edf7e0ab31af973e08567afb0 done
+#5 extracting sha256:b16bb3b2bd07785f19e8c72faf8106454371bff33191bdb4480fd8d9455b7472 done
+#5 DONE 8.4s
+
+#7 [build 1/7] FROM docker.io/library/rust:1.100.0-slim-bookworm@sha256:7c7d4eb4d05b7781187a327809466cfddf29753f6defdc3d19a0e291951b7a37
+#7 resolve docker.io/library/rust:1.100.0-slim-bookworm@sha256:7c7d4eb4d05b7781187a327809466cfddf29753f6defdc3d19a0e291951b7a37 0.0s done
+#7 sha256:f09a2dfe9db530094d84e262ec13295721d7a95c78ce18df9d343dfa2c91f08e 3.11kB / 3.11kB done
+#7 sha256:7c7d4eb4d05b7781187a327809466cfddf29753f6defdc3d19a0e291951b7a37 6.52kB / 6.52kB done
+#7 sha256:476f6598b8d14a1f1bc7e58efc67af206ac8a559c37a3401ce512db2582d0ff7 1.37kB / 1.37kB done
+#7 sha256:dd051e1b8c92ff101fa3071ab97ea4924885942f15644e01c3dc095764e863e3 28.25MB / 28.25MB 2.7s done
+#7 sha256:4bdf5483fc80dcbe6c7a68f9892254b96250aa7ffb5b4d7b8003f51d16749916 294.65MB / 294.65MB 7.8s done
+#7 extracting sha256:dd051e1b8c92ff101fa3071ab97ea4924885942f15644e01c3dc095764e863e3 5.2s
+#7 ...
+
+#8 [stage-1 2/4] WORKDIR /app
+#8 DONE 0.3s
+
+#7 [build 1/7] FROM docker.io/library/rust:1.100.0-slim-bookworm@sha256:7c7d4eb4d05b7781187a327809466cfddf29753f6defdc3d19a0e291951b7a37
+#7 extracting sha256:dd051e1b8c92ff101fa3071ab97ea4924885942f15644e01c3dc095764e863e3 6.2s done
+#7 extracting sha256:4bdf5483fc80dcbe6c7a68f9892254b96250aa7ffb5b4d7b8003f51d16749916
+#7 extracting sha256:4bdf5483fc80dcbe6c7a68f9892254b96250aa7ffb5b4d7b8003f51d16749916 5.0s
+#7 extracting sha256:4bdf5483fc80dcbe6c7a68f9892254b96250aa7ffb5b4d7b8003f51d16749916 10.1s done
+#7 ERROR: failed to register layer: mkdirat usr/local/rustup: no space left on device
+------
+ > [build 1/7] FROM docker.io/library/rust:1.100.0-slim-bookworm@sha256:7c7d4eb4d05b7781187a327809466cfddf29753f6defdc3d19a0e291951b7a37:
+------
+Dockerfile:1
+--------------------
+   1 | >>> FROM rust:1.100.0-slim-bookworm AS build
+   2 |     WORKDIR /build
+   3 |     COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+--------------------
+ERROR: failed to build: failed to solve: failed to register layer: mkdirat usr/local/rustup: no space left on device

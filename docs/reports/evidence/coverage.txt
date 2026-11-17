@@ -1,0 +1,28 @@
+info: cargo-llvm-cov currently setting cfg(coverage); you can opt-out it by passing --no-cfg-coverage
+   Compiling stories-core v0.1.0 (/workspace/work/breaking-bytes/crates/core)
+    Finished `test` profile [unoptimized] target(s) in 2.26s
+     Running unittests src/lib.rs (target/llvm-cov-target/debug/build/stories-core/b8eea5a7dbb91433/out/stories_core-b8eea5a7dbb91433)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/domain.rs (target/llvm-cov-target/debug/build/stories-core/ca9a48b072181e39/out/domain-ca9a48b072181e39)
+
+running 8 tests
+test pipeline_requires_every_gate ... ok
+test no_state_can_transition_to_itself ... ok
+test publication_key_is_stable ... ok
+test publication_kinds_match_sql_values ... ok
+test publication_keys_reject_invalid_ranges ... ok
+test state_names_match_storage ... ok
+test rejection_requires_a_reason_and_preserves_published_events ... ok
+test terminal_states_cannot_be_reopened ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+Filename                                                  Regions    Missed Regions     Cover   Functions  Missed Functions  Executed       Lines      Missed Lines     Cover    Branches   Missed Branches     Cover
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+/workspace/work/breaking-bytes/crates/core/src/lib.rs          67                 0   100.00%          11                 0   100.00%          69                 0   100.00%           0                 0         -
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+TOTAL                                                          67                 0   100.00%          11                 0   100.00%          69                 0   100.00%           0                 0         -
