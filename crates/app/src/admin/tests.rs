@@ -164,10 +164,17 @@ async fn administrative_rules_and_resolution_are_authenticated_atomic_and_fenced
     )?;
     let account = graph.account_key();
     let pending = store.create_event(None).await?;
-    sqlx::query("UPDATE events SET state='PUBLISHING' WHERE id=$1")
-        .bind(pending)
-        .execute(store.pool())
-        .await?;
+    for (from, to) in [
+        (EventState::Detected, EventState::Clustered),
+        (EventState::Clustered, EventState::Verified),
+        (EventState::Verified, EventState::Drafted),
+        (EventState::Drafted, EventState::Checked),
+        (EventState::Checked, EventState::Rendered),
+        (EventState::Rendered, EventState::Queued),
+        (EventState::Queued, EventState::Publishing),
+    ] {
+        store.transition(pending, from, to, None, None).await?;
+    }
     let publication:i64=sqlx::query_scalar("INSERT INTO publications(event_id,kind,status,dry_run,account_key,container_id,request_started_at) VALUES($1,'new','uncertain',false,$2,'77',now()) RETURNING id").bind(pending).bind(&account).fetch_one(store.pool()).await?;
     store
         .enqueue(

@@ -140,6 +140,7 @@ async fn response_retry_after_is_bounded_for_storage() -> Result<(), Box<dyn std
             .mount(&server)
             .await;
     }
+    let _ = rustls::crypto::ring::default_provider().install_default();
     let client = reqwest::Client::builder().no_proxy().build()?;
     for (route, expected) in [("seconds", 120), ("maximum", 86400), ("past", 1)] {
         let response = client

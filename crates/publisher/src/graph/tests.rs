@@ -5,6 +5,7 @@ use wiremock::{
 };
 
 fn client(server: &MockServer) -> Result<Graph, Box<dyn std::error::Error>> {
+    let _ = rustls::crypto::ring::default_provider().install_default();
     Ok(Graph::build(
         Client::builder()
             .no_proxy()

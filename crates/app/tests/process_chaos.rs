@@ -11,7 +11,7 @@ use std::{
     },
     time::Duration,
 };
-use stories_core::policy::ResolutionRequest;
+use stories_core::{EventState, policy::ResolutionRequest};
 use stories_store::{ResolutionWitness, Store};
 use testcontainers::{
     GenericImage, ImageExt,
@@ -118,12 +118,20 @@ async fn sigkill_after_remote_effect_is_reconciled_without_a_second_post() -> Re
         .bind(article)
         .execute(store.pool())
         .await?;
-    sqlx::query(
-        "UPDATE events SET state='QUEUED',verified_revision=content_revision,score=0.9 WHERE id=$1",
-    )
-    .bind(event)
-    .execute(store.pool())
-    .await?;
+    for (from, to) in [
+        (EventState::Detected, EventState::Clustered),
+        (EventState::Clustered, EventState::Verified),
+        (EventState::Verified, EventState::Drafted),
+        (EventState::Drafted, EventState::Checked),
+        (EventState::Checked, EventState::Rendered),
+        (EventState::Rendered, EventState::Queued),
+    ] {
+        store.transition(event, from, to, None, None).await?;
+    }
+    sqlx::query("UPDATE events SET verified_revision=content_revision,score=0.9 WHERE id=$1")
+        .bind(event)
+        .execute(store.pool())
+        .await?;
     let revision: i64 = sqlx::query_scalar("SELECT content_revision FROM events WHERE id=$1")
         .bind(event)
         .fetch_one(store.pool())
@@ -148,7 +156,7 @@ async fn sigkill_after_remote_effect_is_reconciled_without_a_second_post() -> Re
             .env("STORIES_CHAOS_GRAPH", format!("{}/", server.uri()))
             .env("STORIES_CHAOS_ARTIFACTS", &temporary)
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            .stderr(Stdio::inherit())
             .kill_on_drop(true);
         cmd
     };
