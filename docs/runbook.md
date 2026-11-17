@@ -43,11 +43,10 @@ Inspecione audit_log e o estado do evento antes de criar um novo job.
 
 ## GitHub e limites da validação
 
-A integração desta sessão tem leitura, mas a tentativa de criação de README
-recebeu HTTP 403 Resource not accessible by integration. Nenhum arquivo foi enviado.
-O proprietário deve habilitar escrita de conteúdo e workflows na conexão GitHub.
-Depois, enviar a branch de implementação e abrir PR, preservando revisão antes
-de integrar à principal.
+Use uma conexão GitHub com escrita de conteúdo e workflows no repositório.
+Quando houver várias contas conectadas, selecione explicitamente a conta do
+proprietário lincolncyber-01. Envie mudanças por branch e PR, preservando revisão
+antes de integrar à principal. A fundação está na branch codex/phase-1-foundation.
 
 Proteção de branch, CI remoto, credenciais externas, backups, alertas, publicação
 de teste, caos, snapshots, benchmarks e canário ainda precisam dos marcos das

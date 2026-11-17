@@ -19,7 +19,7 @@ Estado em 16/11/2026. Esta matriz registra somente o que existe na fase 1.
 | Shutdown gracioso | app::main | Processo recebe SIGTERM e encerra com sucesso |
 | Formatação, Clippy, nextest | CI e comandos locais | Resultados em reports/phase-1.md |
 | Cobertura de domínio >=80% | cargo-llvm-cov | 100% de linhas na medição atual |
-| CI remoto verde | .github/workflows/ci.yml | Pendente: GitHub nega escrita, HTTP 403 |
+| CI remoto verde | .github/workflows/ci.yml | Código enviado; pendente de conclusão do CI |
 | Container mínimo e não root | deploy/Dockerfile, Compose | Build Docker bloqueado por disco; pendente |
 | Feeds, SSRF, parsers, clusters | Fase 2 | Não implementado |
 | Coleta real por 24 horas | Fase 2 | Não executada |

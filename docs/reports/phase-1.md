@@ -71,8 +71,10 @@ o CI mantém a imagem oficial padrão. Ver ADR-004.
 
 ## O que não foi verificado
 
-- CI no GitHub: a conexão reporta push=false; criação de README foi negada com
-  HTTP 403 Resource not accessible by integration. O remoto permanece sem commits.
+- CI no GitHub: pendente de conclusão. O bloqueio inicial HTTP 403 foi resolvido
+  ao selecionar a conexão do proprietário lincolncyber-01. Os 43 arquivos foram
+  enviados à branch codex/phase-1-foundation; a árvore remota
+  bcf7afb826facff25e7add7521284b9ab08abb25 é idêntica à validada localmente.
 - Build Docker completo: falhou ao registrar a camada da imagem Rust por falta
   de espaço no volume de 8 GB. Não foi declarado aprovado.
 - Execução em VPS, probes de R2 e Meta e publicação real: sem credenciais e ainda
@@ -100,8 +102,7 @@ real é possível com este código.
 
 ## Próximo passo
 
-Habilitar escrita de conteúdo e workflows na conexão GitHub e enviar a branch
-da fundação. Abrir PR e observar o CI com espaço suficiente para o build Docker.
+Observar o CI do PR com espaço suficiente para validar o build Docker.
 A fase 1 só recebe aprovação completa quando esse portão passar. A próxima fase
 de implementação é captura e deduplicação; seu marco de 24 horas continuará
 dependendo de observação real.
