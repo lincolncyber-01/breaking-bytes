@@ -53,3 +53,10 @@ A limpeza R2 alcança no máximo vinte objetos terminais por ciclo, após TTL de
 segurança contado da confirmação ou criação, o que for mais recente. Objetos
 incertos permanecem disponíveis. Configure lifecycle de um dia somente para
 health/. Artefatos locais seguem a retenção documentada no runbook.
+
+O ADR-012 registra a diferença entre validade de Facebook User, Facebook Page e
+Instagram Login. Não aplique a regra genérica de 60 dias a todos os tokens.
+
+Preflight e limpeza têm orçamento total de vinte segundos por rotina e podem ser
+interrompidos pelo sinal de parada. Queda durante limpeza deixa o objeto elegível
+para nova remoção idempotente no ciclo seguinte.

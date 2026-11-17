@@ -84,15 +84,32 @@ pub async fn run(
             return Ok(());
         }
         if last_maintenance.elapsed() >= Duration::from_secs(60) {
-            store
-                .recover_publications(&publisher.account, publisher.settings.instagram.dry_run)
-                .await?;
-            let ready = publisher.preflight(&store).await.is_ok();
-            publisher.healthy.store(ready, Ordering::Relaxed);
-            if !ready {
-                tracing::warn!("preflight de publicação falhou; novos envios suspensos");
+            let maintenance = async {
+                store
+                    .recover_publications(&publisher.account, publisher.settings.instagram.dry_run)
+                    .await?;
+                let ready =
+                    tokio::time::timeout(Duration::from_secs(20), publisher.preflight(&store))
+                        .await
+                        .is_ok_and(|r| r.is_ok());
+                publisher.healthy.store(ready, Ordering::Relaxed);
+                if !ready {
+                    tracing::warn!("preflight de publicação falhou; novos envios suspensos");
+                }
+                match tokio::time::timeout(Duration::from_secs(20), publisher.cleanup(&store)).await
+                {
+                    Ok(result) => result?,
+                    Err(_) => tracing::warn!("limpeza R2 excedeu o ciclo; será retomada"),
+                }
+                Ok::<_, anyhow::Error>(())
+            };
+            tokio::select! {
+                _=crate::collection::wait_for_stop(&mut stop)=>{
+                    publisher.healthy.store(false,Ordering::Relaxed);
+                    return Ok(());
+                }
+                result=maintenance=>result?,
             }
-            publisher.cleanup(&store).await?;
             last_maintenance = tokio::time::Instant::now();
         }
         let lease = Duration::from_secs(publisher.settings.database.lease_s);

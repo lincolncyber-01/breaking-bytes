@@ -39,7 +39,7 @@ Queda ou cancelamento depois da barreira não libera uma nova publicação.
 Foram executados cargo fmt --check (código 0), cargo clippy --workspace
 --all-targets --locked -- -D warnings (sem avisos) e cargo nextest run --workspace
 --locked --test-threads 1 --no-fail-fast: 69 testes passaram, zero ignorados,
-98,272 segundos de execução. Os comandos e sua saída real ficam nos arquivos de evidência. A suíte inclui os
+87,450 segundos de execução. Os comandos e sua saída real ficam nos arquivos de evidência. A suíte inclui os
 contratos de feeds, propriedades do domínio, Postgres, editorial, hash e snapshots
 visuais já existentes, além dos novos testes. O Postgres local usa a imagem
 achatada breaking-bytes/pgvector-fixture:0.8.2-pg16 documentada no ADR-004. A CI usa
@@ -53,7 +53,7 @@ não demonstra entrega automática em toda falha possível da API externa.
 ## Pendências para encerrar a fase 5
 
 1. Implementar monitoramento de validade e renovação do token por fluxo OAuth,
-   confirmando os diferentes prazos e tipos de token na documentação específica.
+   seguindo os diferentes prazos e tipos confirmados no ADR-012.
 2. Implementar reconsulta das fontes publicadas por 24 horas e criação de correções
    com trilha de evidência; integrar o tipo correction ao caminho editorial.
 3. Implementar resolução administrativa auditada de mídia sem ID e ambiguidade.
@@ -65,7 +65,7 @@ não demonstra entrega automática em toda falha possível da API externa.
    da fase 4 permanecem válidos para o renderizador isolado, sem extrapolação.
 
 Não foram fornecidas credenciais Meta, R2 ou LLM neste ambiente. Não houve upload
-real ou publicação na conta. As decisões e desvios estão nos ADRs 010 e 011.
+real ou publicação na conta. As decisões e desvios estão nos ADRs 010, 011 e 012.
 A garantia forte de zero perda e zero duplicatas sob partição permanece inviável
 sem prova adicional de idempotência remota; incerteza é preservada explicitamente.
 
