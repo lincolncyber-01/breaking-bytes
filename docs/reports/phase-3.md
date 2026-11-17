@@ -81,15 +81,15 @@ Os logs integrais registram os comandos e resultados locais:
 cargo fmt --check
 exit_code: 0
 cargo clippy --workspace --all-targets --locked -- -D warnings
-Finished `dev` profile [unoptimized] target(s) in 3.38s
+Finished `dev` profile [unoptimized] target(s) in 2.63s
 cargo nextest run --workspace --locked --test-threads 1
-Summary [  31.012s] 46 tests run: 46 passed, 0 skipped
+Summary [  48.881s] 47 tests run: 47 passed, 0 skipped
 cargo llvm-cov --package stories-core --package stories-normalize --package stories-cluster --package stories-verify --package stories-editorial --locked --fail-under-lines 80 --summary-only
 TOTAL: 760 linhas, 68 não cobertas, 91.05%
 ```
 
  Formatação passou,
-Clippy passou com `-D warnings` e nextest executou 46 testes, todos aprovados,
+Clippy passou com `-D warnings` e nextest executou 47 testes, todos aprovados,
 sem testes ignorados. A cobertura local agregada de core/normalize/cluster/verify/
 editorial foi **91,05% de linhas** (760 linhas, 68 não cobertas), acima do mínimo
 de 80%. O relatório completo está em evidence/phase-3-coverage.txt.
@@ -109,6 +109,8 @@ Foram exercitados:
 - Fluxo até CHECKED/outbox no Postgres, duas reescritas e rejeição na terceira
   saída inválida, retomada de VERIFIED após 429, observação/expiração/promoção N3,
   jobs duplicados sem novo rascunho, versões concorrentes e fencing por lease.
+  Uma transação mantida aberta por 11 segundos comprova que a renovação não
+  impede o progresso do próprio trabalho; cancelamento libera o lock antes do retry.
 - Mudança de conteúdo durante verificação, criação de substituto e invalidação
   por alteração de origem editorial. Sincronização idêntica não muda revisão.
 - Comando de avaliação sem credencial: falha com código 1 antes de chamar o

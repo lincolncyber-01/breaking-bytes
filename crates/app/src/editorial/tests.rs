@@ -378,3 +378,88 @@ async fn durable_editorial_rewrites_retries_resume_and_revision_fencing() -> Res
     store.close().await;
     Ok(())
 }
+
+#[tokio::test]
+async fn renewal_and_stop_do_not_wait_on_the_workers_own_transaction() -> Result<()> {
+    let image =
+        std::env::var("STORIES_TEST_POSTGRES_IMAGE").unwrap_or_else(|_| "pgvector/pgvector".into());
+    let container = GenericImage::new(image.as_str(), "0.8.2-pg16")
+        .with_exposed_port(5432.tcp())
+        .with_wait_for(WaitFor::message_on_stderr(
+            "database system is ready to accept connections",
+        ))
+        .with_env_var("POSTGRES_PASSWORD", "integration-only")
+        .start()
+        .await?;
+    let url = format!(
+        "postgres://postgres:integration-only@{}:{}/postgres",
+        container.get_host().await?,
+        container.get_host_port_ipv4(5432).await?
+    );
+    let store = Store::connect(&url, 10, Duration::from_secs(10)).await?;
+    store.migrate().await?;
+    let source = store
+        .register_source(
+            "Rust Blog",
+            "A",
+            "rss",
+            "https://blog.rust-lang.org/feed.xml",
+            5,
+            60,
+        )
+        .await?;
+    let event = seed(&store, source, 20).await?;
+    let job = claim(&store, event).await?;
+    let (_sender, mut stop) = watch::channel(false);
+    let work = async {
+        let mut tx = store.pool().begin().await?;
+        sqlx::query("SELECT id FROM jobs WHERE id=$1 FOR UPDATE")
+            .bind(job.id)
+            .execute(&mut *tx)
+            .await?;
+        tokio::time::sleep(Duration::from_secs(11)).await;
+        tx.commit().await?;
+        Ok(())
+    };
+    let outcome = tokio::time::timeout(
+        Duration::from_secs(14),
+        owned_work(&store, &job, Duration::from_secs(30), &mut stop, work),
+    )
+    .await?;
+    outcome.ok_or_else(|| anyhow::anyhow!("worker foi interrompido"))??;
+    store.complete(&job).await?;
+
+    let event = seed(&store, source, 21).await?;
+    let job = claim(&store, event).await?;
+    let (sender, mut stop) = watch::channel(false);
+    let (locked, ready) = tokio::sync::oneshot::channel();
+    let signal = tokio::spawn(async move {
+        let _ = ready.await;
+        let _ = sender.send(true);
+    });
+    let work = async {
+        let mut tx = store.pool().begin().await?;
+        sqlx::query("SELECT id FROM jobs WHERE id=$1 FOR UPDATE")
+            .bind(job.id)
+            .execute(&mut *tx)
+            .await?;
+        let _ = locked.send(());
+        std::future::pending::<()>().await;
+        tx.commit().await?;
+        Ok(())
+    };
+    let outcome = tokio::time::timeout(
+        Duration::from_secs(2),
+        owned_work(&store, &job, Duration::from_secs(30), &mut stop, work),
+    )
+    .await?;
+    assert!(outcome.is_none());
+    tokio::time::timeout(
+        Duration::from_secs(2),
+        store.retry(&job, JobFailure::Transient, 5),
+    )
+    .await??;
+    signal.await?;
+    store.close().await;
+    Ok(())
+}

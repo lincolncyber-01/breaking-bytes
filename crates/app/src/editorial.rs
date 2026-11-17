@@ -91,20 +91,12 @@ pub async fn run(
             continue;
         };
         let process = process(&settings, &store, &job, &client, &collector, engine.clone());
-        tokio::pin!(process);
-        let mut heartbeat = tokio::time::interval(lease / 3);
-        heartbeat.tick().await;
-        let result = loop {
-            tokio::select! {
-                result=&mut process=>break result,
-                _=heartbeat.tick()=>{
-                    if let Err(error)=store.renew(&job,lease).await {break Err(error.into());}
-                }
-                _=stop.changed()=>{
-                    let _=store.retry(&job,JobFailure::Transient,settings.database.max_attempts).await;
-                    return Ok(());
-                }
-            }
+        let Some(result) = owned_work(&store, &job, lease, &mut stop, process).await else {
+            // O futuro e sua transação já foram descartados antes de liberar o job.
+            let _ = store
+                .retry(&job, JobFailure::Transient, settings.database.max_attempts)
+                .await;
+            return Ok(());
         };
         if let Err(error) = result {
             if matches!(
@@ -135,6 +127,28 @@ pub async fn run(
                 tracing::warn!(job_id = job.id, "trabalho editorial reagendado ou isolado");
             }
         }
+    }
+}
+
+async fn owned_work<F: Future<Output = Result<()>> + Send>(
+    store: &Store,
+    job: &Job,
+    lease: Duration,
+    stop: &mut watch::Receiver<bool>,
+    work: F,
+) -> Option<Result<()>> {
+    let renewal = async {
+        loop {
+            tokio::time::sleep(lease / 3).await;
+            store.renew(job, lease).await?;
+        }
+    };
+    tokio::pin!(work, renewal);
+    // Ambos continuam sendo polled mesmo se a renovação esperar um lock do job.
+    tokio::select! {
+        result=&mut work=>Some(result),
+        result=&mut renewal=>Some(result),
+        _=stop.changed()=>None,
     }
 }
 
