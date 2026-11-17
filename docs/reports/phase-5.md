@@ -19,7 +19,7 @@ e impede repetição automática de media_publish após perda da resposta.
 | Queda após efeito/perda de resposta | app/src/publication/tests.rs | estado durável, novo lease e contador HTTP: um POST |
 | Queda antes do envio após barreira | mesmo teste | mantém uncertain, não repete nem elimina intenção |
 | Retomada após container persistido | mesmo teste | reutiliza container e conclui publicação simulada na API de contrato |
-| Revisão nova antes do envio | mesmo teste | reserva obsoleta falha sem efeito externo |
+| Revisão nova antes do envio | mesmo teste | reserva obsoleta falha sem efeito externo e preserva substituição editorial |
 | Limpeza segura | store cleanup_candidates + worker | incertos excluídos; terminais aguardam TTL |
 | Permissões e fluxo atual Meta | ADR-010, docs/publication.md | fontes oficiais consultadas; App Review e conta real pendentes |
 | Formatação, Clippy e suíte | docs/reports/evidence/phase-5-* | saída real dos comandos locais, atualizada neste incremento |
@@ -39,7 +39,7 @@ Queda ou cancelamento depois da barreira não libera uma nova publicação.
 Foram executados cargo fmt --check (código 0), cargo clippy --workspace
 --all-targets --locked -- -D warnings (sem avisos) e cargo nextest run --workspace
 --locked --test-threads 1 --no-fail-fast: 69 testes passaram, zero ignorados,
-87,450 segundos de execução. Os comandos e sua saída real ficam nos arquivos de evidência. A suíte inclui os
+86,685 segundos de execução. Os comandos e sua saída real ficam nos arquivos de evidência. A suíte inclui os
 contratos de feeds, propriedades do domínio, Postgres, editorial, hash e snapshots
 visuais já existentes, além dos novos testes. O Postgres local usa a imagem
 achatada breaking-bytes/pgvector-fixture:0.8.2-pg16 documentada no ADR-004. A CI usa

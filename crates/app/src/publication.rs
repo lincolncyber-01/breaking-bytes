@@ -354,6 +354,18 @@ impl Publisher {
                 )
                 .to_hex()
             );
+            // A chave é persistida antes do PUT para permitir limpeza mesmo após queda ou revisão nova.
+            if !store
+                .publication_step(
+                    job,
+                    id,
+                    PublicationStep::UploadPlanned(&key),
+                    self.options().await?,
+                )
+                .await?
+            {
+                return Ok(());
+            }
             // PUT repetido sobrescreve a mesma chave com os mesmos bytes; não cria Story.
             remote
                 .r2
@@ -371,7 +383,7 @@ impl Publisher {
                 .publication_step(
                     job,
                     id,
-                    PublicationStep::Uploaded(&key),
+                    PublicationStep::UploadPlanned(&key),
                     self.options().await?,
                 )
                 .await?

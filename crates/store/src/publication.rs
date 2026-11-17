@@ -45,7 +45,7 @@ pub struct PublicationPolicy<'a> {
 
 #[derive(Debug, Clone, Copy)]
 pub enum PublicationStep<'a> {
-    Uploaded(&'a str),
+    UploadPlanned(&'a str),
     Container(&'a str),
     Ready,
     Begin,
@@ -287,7 +287,14 @@ impl Store {
                     .await
                     .map_err(database_error)?;
                 if e.state == "QUEUED" {
-                    sqlx::query("UPDATE events SET state='SUPERSEDED',reason='publication_stale' WHERE id=$1").bind(p.event_id).execute(&mut *tx).await.map_err(database_error)?;
+                    if Some(e.content_revision) != p.revision || e.verified_revision != p.revision {
+                        // O editorial deve criar o substituto; encerrar o evento aqui perderia a nova evidência.
+                        sqlx::query("INSERT INTO jobs(kind,dedupe_key,payload) VALUES('verify',$1,$2) ON CONFLICT(dedupe_key) DO NOTHING")
+                            .bind(format!("verify:revision:{}:{}",p.event_id,e.content_revision))
+                            .bind(json!({"event_id":p.event_id})).execute(&mut *tx).await.map_err(database_error)?;
+                    } else {
+                        sqlx::query("UPDATE events SET state='REJECTED',reason='publication_evidence_expired' WHERE id=$1").bind(p.event_id).execute(&mut *tx).await.map_err(database_error)?;
+                    }
                 }
                 audit(
                     &mut tx,
@@ -309,14 +316,16 @@ impl Store {
                 | PublicationStep::Failed
         );
         let (status, code) = match step {
-            PublicationStep::Uploaded(key) if before && p.status == "creating" && !p.dry_run => {
+            PublicationStep::UploadPlanned(key)
+                if before && p.status == "creating" && !p.dry_run =>
+            {
                 sqlx::query("UPDATE publications SET image_key=$2 WHERE id=$1")
                     .bind(id)
                     .bind(key)
                     .execute(&mut *tx)
                     .await
                     .map_err(database_error)?;
-                ("creating", "uploaded")
+                ("creating", "upload_planned")
             }
             PublicationStep::Container(container)
                 if before && p.status == "creating" && p.image_key.is_some() && !p.dry_run =>

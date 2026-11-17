@@ -225,7 +225,7 @@ async fn dry_run_and_publication_crash_recovery_use_postgres_and_http() -> Resul
         .publication_step(
             &job,
             id,
-            PublicationStep::Uploaded("stories/test.jpg"),
+            PublicationStep::UploadPlanned("stories/test.jpg"),
             options(&account, false),
         )
         .await?;
@@ -297,7 +297,7 @@ async fn dry_run_and_publication_crash_recovery_use_postgres_and_http() -> Resul
         .publication_step(
             &job,
             id,
-            PublicationStep::Uploaded("stories/ambiguous.jpg"),
+            PublicationStep::UploadPlanned("stories/ambiguous.jpg"),
             options(&account, false),
         )
         .await?;
@@ -336,7 +336,7 @@ async fn dry_run_and_publication_crash_recovery_use_postgres_and_http() -> Resul
         .publication_step(
             &old,
             id,
-            PublicationStep::Uploaded("stories/resume.jpg"),
+            PublicationStep::UploadPlanned("stories/resume.jpg"),
             options(&account, false),
         )
         .await?;
@@ -410,6 +410,36 @@ async fn dry_run_and_publication_crash_recovery_use_postgres_and_http() -> Resul
             .await?
     );
     assert_eq!(store.publication(id).await?.status, "failed");
+    let context = store.editorial_context(event).await?;
+    assert_eq!(
+        context.state,
+        EventState::Queued,
+        "a reavaliação precisa encontrar o evento ativo"
+    );
+    let verify = store
+        .claim_kind(Duration::from_secs(30), 5, "verify")
+        .await?
+        .context("reavaliação perdida")?;
+    assert_eq!(
+        verify.payload.get("event_id").and_then(Value::as_i64),
+        Some(event)
+    );
+    assert_eq!(
+        store
+            .editorial_commit(&verify, &context, stories_store::EditorialStep::Skip)
+            .await?,
+        stories_store::EditorialOutcome::Restarted
+    );
+    let replacements:i64=sqlx::query_scalar("SELECT count(*) FROM audit_log WHERE event_id=$1 AND step='evidence_superseded' AND detail ? 'replacement'").bind(event).fetch_one(store.pool()).await?;
+    assert_eq!(
+        replacements, 1,
+        "a nova evidência precisa de candidato substituto"
+    );
+    let pending:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM audit_log a JOIN events e ON e.id=(a.detail->>'replacement')::bigint JOIN jobs j ON (j.payload->>'event_id')::bigint=e.id WHERE a.event_id=$1 AND a.step='evidence_superseded' AND e.state='CLUSTERED' AND j.kind='verify' AND j.done_at IS NULL AND j.dead_at IS NULL)").bind(event).fetch_one(store.pool()).await?;
+    assert!(
+        pending,
+        "o substituto precisa continuar na outbox de verificação"
+    );
     assert!(
         read_artifact(&root, "../escape.jpg", &[0; 32], 10)
             .await

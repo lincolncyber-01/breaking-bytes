@@ -34,6 +34,7 @@ entrega automática sem perdas e sem duplicatas para toda partição da Meta. Es
 
 Novos containers podem ser recriados após perda da resposta da criação: containers
 órfãos não são publicados. O único container persistido é usado para o POST final.
+A chave R2 é persistida antes do PUT, permitindo limpeza após queda ou revisão nova.
 Limpeza só alcança estados terminais e respeita TTL após confirmação. Incertos não
 são apagados. Pausa bloqueia novos envios, mas permite reconciliação.
 
