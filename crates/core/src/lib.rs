@@ -3,6 +3,16 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+/// Metadados capturados: conteúdo externo é dado, sem autoridade sobre o pipeline.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CapturedArticle {
+    pub url: String,
+    pub title: String,
+    pub excerpt: String,
+    pub image_url: Option<String>,
+    pub published_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
 /// Estados persistidos com os nomes definidos no blueprint.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]

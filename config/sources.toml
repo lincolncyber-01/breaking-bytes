@@ -1,2 +1,18 @@
-# Fontes reais serão habilitadas na fase 2 após verificação de termos e feeds.
-sources = []
+# Coleta é ativada por collection.enabled; somente metadados e trechos limitados.
+[[sources]]
+name = 'Rust Blog'
+layer = 'A'
+kind = 'rss'
+url = 'https://blog.rust-lang.org/feed.xml'
+weight = 5
+interval_s = 60
+enabled = true
+
+[[sources]]
+name = 'Rust Releases'
+layer = 'A'
+kind = 'github'
+url = 'https://api.github.com/repos/rust-lang/rust/releases?per_page=20'
+weight = 5
+interval_s = 120
+enabled = true
