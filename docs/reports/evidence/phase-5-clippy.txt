@@ -1,0 +1,5 @@
+command: cargo clippy --workspace --all-targets --locked -- -D warnings
+exit_code: 0
+    Checking stories-app v0.1.0 (/workspace/work/breaking-bytes/crates/app)
+    Checking stories-publisher v0.1.0 (/workspace/work/breaking-bytes/crates/publisher)
+    Finished `dev` profile [unoptimized] target(s) in 3.42s

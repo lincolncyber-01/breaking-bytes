@@ -82,20 +82,23 @@ fn main() -> Result<()> {
         let listener = TcpListener::bind(settings.admin.bind)
             .await
             .context("não foi possível abrir a Admin API")?;
+        let publishing_ready=std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         let app = router(AppState {
             store: store.clone(),
-            admin_token: secrets.admin_token,
+            admin_token: secrets.admin_token.clone(),
             dry_run: settings.instagram.dry_run,
             collection_enabled: settings.collection.enabled,
             editorial_enabled: settings.llm.enabled,
             imaging_enabled: settings.imaging.enabled,
+            publishing_enabled:settings.publishing.enabled,
+            publishing_ready:publishing_ready.clone(),
         });
         let (stop_sender,mut server_stop)=tokio::sync::watch::channel(false);
-        let mut pipeline=tokio::spawn(stories_app::pipeline::run(settings.clone(),store.clone(),secrets.llm_key,server_stop.clone()));
+        let mut pipeline=tokio::spawn(stories_app::pipeline::run(settings.clone(),store.clone(),secrets,publishing_ready,server_stop.clone()));
         let signal_sender=stop_sender.clone();
         let signal=tokio::spawn(async move{shutdown().await;let _=signal_sender.send(true);});
         tracing::info!(bind = %settings.admin.bind, dry_run = settings.instagram.dry_run,
-            phase = 4, collection_enabled=settings.collection.enabled, editorial_enabled=settings.llm.enabled,"serviço iniciado; publicação ainda indisponível");
+            phase = 5, collection_enabled=settings.collection.enabled, editorial_enabled=settings.llm.enabled,"serviço iniciado; publicação controlada por modo e preflight");
         let server=axum::serve(listener, app).with_graceful_shutdown(async move {
             stories_app::collection::wait_for_stop(&mut server_stop).await;
         });

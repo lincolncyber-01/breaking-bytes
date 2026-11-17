@@ -110,8 +110,8 @@ zero falsas aceitações e 100% de concordância no corpus aprovado pelo operado
 O blueprint não especifica um percentual; essa suposição está no ADR-007.
 
 CHECKED cria trabalho render com revisão. O worker da fase 4 consome esses jobs,
-gera o JPEG e confirma RENDERED mais outbox schedule. Publicação ainda não está
-implementada. Estado, revisão, versão, lease e pausa são conferidos na confirmação.
+gera o JPEG e confirma RENDERED mais outbox schedule. O incremento da fase 5 consome schedule em dry_run e implementa o protocolo
+real com reconciliação; o aceite de produção segue pendente. Estado, revisão, versão, lease e pausa são conferidos na confirmação.
 
 
 ## Renderização e artefatos
@@ -141,10 +141,17 @@ Um glifo ausente na Inter também exige reescrita ou rejeição; não usamos fon
 de fallback instaladas no sistema.
 
 Nova evidência em RENDERED/QUEUED enfileira verificação e torna o candidato antigo
-obsoleto. O consumidor schedule/publicação da fase 5 deverá conferir estado e
+obsoleto. O consumidor schedule/publicação confere estado e
 revisão antes de avançar. Não consuma essa outbox com scripts genéricos.
 
 Os benchmarks da fase 4 medem o renderizador isolado. O p95 passou no ambiente
 medido, mas houve máximo de 413,8 ms; valide a VPS final e monitore percentis.
 Ainda faltam memória da aplicação inteira, detecção real, R2, Meta e caos de
 publicação. Nenhum resultado desta fase comprova publicação real.
+
+## Publicação em andamento
+
+Leia docs/publication.md antes de alterar o modo. Aplique a migration 0005.
+As intenções uncertain e published_unresolved exigem acompanhamento; não apague
+registros nem reenvie por script. Preflight não substitui App Review, staging ou
+validação do ciclo de vida do token. Portões estão em docs/reports/phase-5.md.

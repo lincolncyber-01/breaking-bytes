@@ -1,5 +1,6 @@
 FROM rust:1.100.0-slim-bookworm AS build
 WORKDIR /build
+ENV CARGO_BUILD_JOBS=2 CARGO_INCREMENTAL=0
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY crates ./crates
 COPY migrations ./migrations

@@ -15,6 +15,8 @@ pub struct Settings {
     pub collection: Collection,
     #[serde(default)]
     pub imaging: Imaging,
+    #[serde(default)]
+    pub publishing: Publishing,
     pub pipeline: Pipeline,
     pub database: Database,
     pub admin: Admin,
@@ -23,6 +25,21 @@ pub struct Settings {
     pub llm: Llm,
     #[serde(default)]
     pub sources: Vec<Source>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Publishing {
+    pub enabled: bool,
+    pub reserved_slots: u32,
+}
+impl Default for Publishing {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            reserved_slots: 5,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -121,6 +138,12 @@ pub enum Login {
 pub struct Storage {
     pub bucket: String,
     pub ttl_minutes: u32,
+    #[serde(default = "r2_account")]
+    pub account_id: String,
+    #[serde(default = "r2_access")]
+    pub access_key: String,
+    #[serde(default = "r2_secret")]
+    pub secret_key: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -146,6 +169,16 @@ pub struct Source {
     pub interval_s: u64,
     #[serde(default = "enabled_by_default")]
     pub enabled: bool,
+}
+
+fn r2_account() -> String {
+    "env:R2_ACCOUNT_ID".into()
+}
+fn r2_access() -> String {
+    "env:R2_ACCESS_KEY_ID".into()
+}
+fn r2_secret() -> String {
+    "env:R2_SECRET_ACCESS_KEY".into()
 }
 
 fn enabled_by_default() -> bool {
@@ -175,6 +208,9 @@ pub struct Secrets {
     pub instagram_token: Option<Secret>,
     pub instagram_user_id: Option<Secret>,
     pub llm_key: Option<Secret>,
+    pub r2_account: Option<Secret>,
+    pub r2_access: Option<Secret>,
+    pub r2_secret: Option<Secret>,
 }
 
 impl Settings {
@@ -213,6 +249,9 @@ impl Settings {
     }
 
     pub fn validate(&self) -> Result<(), ConfigError> {
+        if self.publishing.reserved_slots > 79 {
+            return Err(ConfigError::Invalid("publishing.reserved_slots"));
+        }
         let image = &self.imaging;
         if !(1024..=8 * 1024 * 1024).contains(&image.max_bytes)
             || !(1_000_000..=16_000_000).contains(&image.max_pixels)
@@ -267,6 +306,9 @@ impl Settings {
             &self.instagram.user_id,
             &self.instagram.access_token,
             &self.llm.api_key,
+            &self.storage.account_id,
+            &self.storage.access_key,
+            &self.storage.secret_key,
         ] {
             secret_name(reference)?;
         }
@@ -334,7 +376,7 @@ impl Settings {
                 .ok_or_else(|| ConfigError::MissingSecret(name.to_owned()))
         };
         let optional = |reference: &str| -> Result<Option<Secret>, ConfigError> {
-            if self.instagram.dry_run {
+            if self.instagram.dry_run || !self.publishing.enabled {
                 Ok(lookup(secret_name(reference)?)
                     .filter(|value| !value.trim().is_empty())
                     .map(Secret))
@@ -351,12 +393,17 @@ impl Settings {
         Ok(Secrets {
             database_url: required(&self.database.url)?,
             admin_token,
+            r2_account: optional(&self.storage.account_id)?,
+            r2_access: optional(&self.storage.access_key)?,
+            r2_secret: optional(&self.storage.secret_key)?,
             instagram_token: optional(&self.instagram.access_token)?,
             instagram_user_id: optional(&self.instagram.user_id)?,
             llm_key: if self.llm.enabled {
                 Some(required(&self.llm.api_key)?)
             } else {
-                optional(&self.llm.api_key)?
+                lookup(secret_name(&self.llm.api_key)?)
+                    .filter(|v| !v.trim().is_empty())
+                    .map(Secret)
             },
         })
     }

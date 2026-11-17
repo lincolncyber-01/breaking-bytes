@@ -7,10 +7,12 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: '1'
+  CARGO_BUILD_JOBS: '2'
+  CARGO_INCREMENTAL: '0'
 jobs:
   quality:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - name: Instalar toolchain fixa
@@ -31,12 +33,12 @@ jobs:
         run: docker run --rm --network none --read-only --tmpfs /app/artifacts:rw,uid=65532,gid=65532,size=16m breaking-bytes:ci --render-example /app/artifacts/example.jpg
   domain-coverage:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - run: rustup toolchain install 1.100.0 --profile minimal --component llvm-tools-preview
       - run: cargo install cargo-llvm-cov --version 0.9.1 --locked
-      - run: cargo llvm-cov --package stories-core --package stories-normalize --package stories-cluster --package stories-verify --package stories-editorial --package stories-imaging --locked --fail-under-lines 80 --lcov --output-path lcov.info
+      - run: cargo llvm-cov --package stories-core --package stories-normalize --package stories-cluster --package stories-verify --package stories-editorial --package stories-imaging --package stories-scheduler --package stories-publisher --locked --fail-under-lines 80 --lcov --output-path lcov.info
   render-performance:
     runs-on: ubuntu-24.04
     timeout-minutes: 25

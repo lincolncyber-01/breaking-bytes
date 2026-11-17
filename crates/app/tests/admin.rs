@@ -46,6 +46,8 @@ async fn health_auth_pause_and_fail_closed_readiness() -> Result<(), Box<dyn std
         _ => None,
     })?;
     let state = AppState {
+        publishing_enabled: true,
+        publishing_ready: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
         editorial_enabled: false,
         imaging_enabled: false,
         store: store.clone(),

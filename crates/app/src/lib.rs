@@ -11,7 +11,13 @@ use axum::{
     routing::{get, put},
 };
 use serde::{Deserialize, Serialize};
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration,
+};
 use stories_config::Secret;
 use stories_store::Store;
 use subtle::ConstantTimeEq;
@@ -22,6 +28,7 @@ mod editorial;
 pub mod evaluation;
 pub mod imaging;
 pub mod pipeline;
+pub mod publication;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -31,6 +38,8 @@ pub struct AppState {
     pub collection_enabled: bool,
     pub editorial_enabled: bool,
     pub imaging_enabled: bool,
+    pub publishing_enabled: bool,
+    pub publishing_ready: Arc<AtomicBool>,
 }
 
 pub fn router(state: AppState) -> Router {
@@ -89,7 +98,9 @@ struct Readiness {
 }
 
 async fn ready(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let healthy = state.store.health().await.is_ok() && state.dry_run;
+    let healthy = state.store.health().await.is_ok()
+        && (state.dry_run
+            || state.publishing_enabled && state.publishing_ready.load(Ordering::Relaxed));
     let code = if healthy {
         StatusCode::OK
     } else {
@@ -99,7 +110,9 @@ async fn ready(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         code,
         Json(Readiness {
             status: if healthy { "ready" } else { "not_ready" },
-            scope: if state.imaging_enabled {
+            scope: if state.publishing_enabled {
+                "publication"
+            } else if state.imaging_enabled {
                 "imaging"
             } else if state.editorial_enabled {
                 "editorial"
@@ -116,10 +129,12 @@ async fn ready(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 async fn status(State(state): State<Arc<AppState>>) -> Response {
     match state.store.paused().await {
         Ok(paused) => Json(serde_json::json!({
-            "paused": paused, "dry_run": state.dry_run, "phase": 4,
+            "paused": paused, "dry_run": state.dry_run, "phase": 5,
             "collection_enabled":state.collection_enabled,"clustering_mode":"hash_entities",
             "editorial_enabled":state.editorial_enabled,"imaging_enabled":state.imaging_enabled,
-            "pipeline_available": false,
+            "publishing_enabled": state.publishing_enabled,
+            "publishing_ready":state.publishing_ready.load(Ordering::Relaxed),
+            "pipeline_available": state.publishing_enabled,
         }))
         .into_response(),
         Err(_) => StatusCode::SERVICE_UNAVAILABLE.into_response(),

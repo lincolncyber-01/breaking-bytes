@@ -111,3 +111,24 @@ fn imaging_limits_paths_and_manifest_are_validated() -> Result<(), Box<dyn std::
     }
     Ok(())
 }
+
+#[test]
+fn live_publisher_requires_r2_but_disabled_llm_needs_no_key()
+-> Result<(), Box<dyn std::error::Error>> {
+    let mut config = settings()?;
+    config.instagram.dry_run = false;
+    let secrets = config.resolve_with(|name| match name {
+        "DATABASE_URL" => Some("postgres://localhost/stories".into()),
+        "ADMIN_TOKEN" => Some("a".repeat(32)),
+        "IG_USER_ID" => Some("123".into()),
+        "IG_ACCESS_TOKEN" | "R2_ACCESS_KEY_ID" | "R2_SECRET_ACCESS_KEY" => {
+            Some("fixture-only".into())
+        }
+        "R2_ACCOUNT_ID" => Some("a".repeat(32)),
+        _ => None,
+    })?;
+    assert!(secrets.llm_key.is_none());
+    assert!(secrets.r2_secret.is_some());
+    assert!(!format!("{secrets:?}").contains("fixture-only"));
+    Ok(())
+}

@@ -1,9 +1,10 @@
 //! Transporte compartilhado e supervisão dos estágios habilitados.
 
 use anyhow::{Context, Result};
+use std::sync::{Arc, atomic::AtomicBool};
 use std::time::Duration;
 use stories_collectors::http::HttpClient;
-use stories_config::{Secret, Settings};
+use stories_config::{Secrets, Settings};
 use stories_editorial::client::AnthropicClient;
 use stories_store::Store;
 use tokio::{sync::watch, task::JoinSet};
@@ -11,10 +12,15 @@ use tokio::{sync::watch, task::JoinSet};
 pub async fn run(
     settings: Settings,
     store: Store,
-    key: Option<Secret>,
+    secrets: Secrets,
+    publishing_ready: Arc<AtomicBool>,
     mut stop: watch::Receiver<bool>,
 ) -> Result<()> {
-    if !settings.collection.enabled && !settings.llm.enabled && !settings.imaging.enabled {
+    if !settings.collection.enabled
+        && !settings.llm.enabled
+        && !settings.imaging.enabled
+        && !settings.publishing.enabled
+    {
         crate::collection::wait_for_stop(&mut stop).await;
         return Ok(());
     }
@@ -57,6 +63,17 @@ pub async fn run(
             settings.clone(),
             store.clone(),
             http.clone(),
+            stop.clone(),
+        ));
+    }
+    let key = secrets.llm_key.clone();
+    if settings.publishing.enabled {
+        tasks.spawn(crate::publication::run(
+            settings.clone(),
+            store.clone(),
+            http.clone(),
+            secrets,
+            publishing_ready,
             stop.clone(),
         ));
     }

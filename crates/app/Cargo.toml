@@ -11,6 +11,8 @@ name = "stories-tech"
 path = "src/main.rs"
 
 [dependencies]
+stories-scheduler.workspace = true
+stories-publisher.workspace = true
 anyhow.workspace = true
 axum.workspace = true
 chrono.workspace = true
@@ -33,6 +35,9 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 
 [dev-dependencies]
+stories-publisher = { workspace = true, features = ["test-support"] }
+reqwest.workspace = true
+wiremock.workspace = true
 http-body-util.workspace = true
 sqlx.workspace = true
 testcontainers.workspace = true

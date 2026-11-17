@@ -41,8 +41,15 @@ api_version = 'v27.0'
 login = 'facebook'
 dry_run = true
 
+[publishing]
+enabled = true
+reserved_slots = 5
+
 [storage]
 bucket = 'stories-img'
+account_id = 'env:R2_ACCOUNT_ID'
+access_key = 'env:R2_ACCESS_KEY_ID'
+secret_key = 'env:R2_SECRET_ACCESS_KEY'
 ttl_minutes = 60
 
 [llm]
