@@ -33,6 +33,12 @@ O `cargo fmt --check` passou e `cargo clippy --workspace --all-targets --offline
 no PR #5;
 os resultados dos 81 testes anteriores não se aplicam automaticamente ao código novo.
 
+A suíte local dos crates config, normalize, verify, editorial e collectors passou:
+43 testes, zero ignorados, em 6,761 segundos. Foi repetido Clippy com --locked,
+--all-targets e -D warnings após o bloqueio de reserva concorrente, sem avisos.
+A cobertura do primeiro commit 24f1e64 passou no CI; a versão final tem seu próprio
+workflow e seus resultados são registrados no PR.
+
 A confirmação semântica precisa de corpus real com títulos traduzidos, notas
 ambíguas, retratações e instruções maliciosas. Os testes simulados demonstram os
 contratos e barreiras, não a acurácia do modelo. A extração observa os trechos

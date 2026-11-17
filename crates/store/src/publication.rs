@@ -203,6 +203,8 @@ impl Store {
                 .fetch_one(&mut *tx)
                 .await
                 .map_err(database_error)?;
+            let revision_busy:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM events target JOIN publication_reviews current ON current.id=target.review_id JOIN publication_reviews other ON other.publication_id=current.publication_id JOIN events candidate ON candidate.review_id=other.id JOIN publications p ON p.event_id=candidate.id WHERE target.id=$1 AND p.event_id<>target.id AND p.account_key=$2 AND p.dry_run=$3 AND p.status IN('creating','container_ready','publishing','uncertain'))")
+                .bind(event).bind(options.account).bind(options.dry_run).fetch_one(&mut *tx).await.map_err(database_error)?;
             if !fresh {
                 sqlx::query("UPDATE events SET state='REJECTED',reason='publication_evidence_expired' WHERE id=$1").bind(event).execute(&mut *tx).await.map_err(database_error)?;
                 audit(
@@ -213,6 +215,16 @@ impl Store {
                 )
                 .await?;
                 finish(&mut tx, job).await?;
+            } else if revision_busy {
+                // Uma resposta incerta de outra revisão do mesmo Story impede novo efeito remoto.
+                audit(
+                    &mut tx,
+                    event,
+                    "revision_publication_wait",
+                    json!({"code":"previous_revision_pending"}),
+                )
+                .await?;
+                defer(&mut tx, job, 60, None).await?;
             } else {
                 match decision(&mut tx, options, -1, score, kind == "correction").await? {
                     Decision::Ready => {

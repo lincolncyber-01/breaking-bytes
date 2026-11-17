@@ -88,3 +88,4 @@ CREATE FUNCTION publication_evidence_fresh(target bigint,age_hours int,simulatio
         END FROM events e WHERE e.id=target;
 $$;
 CREATE INDEX publication_reviews_status ON publication_reviews(status,created_at);
+CREATE INDEX events_review ON events(review_id) WHERE review_id IS NOT NULL;

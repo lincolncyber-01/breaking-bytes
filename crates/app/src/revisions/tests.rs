@@ -219,6 +219,41 @@ async fn correction_dry_run_survives_crash_and_fences_changed_sources() -> Resul
         stories_core::EventState::Checked
     );
     crate::imaging::tests::render_fixture(&settings, &store, child).await?;
+    // Uma revisão irmã em estado incerto bloqueia outra reserva da mesma publicação.
+    let sibling:i64=sqlx::query_scalar("INSERT INTO events(parent_event_id,review_id,publication_kind) VALUES($1,$2,'correction') RETURNING id").bind(first).bind(review_id).fetch_one(store.pool()).await?;
+    let uncertain:i64=sqlx::query_scalar("INSERT INTO publications(event_id,kind,status,dry_run,account_key) VALUES($1,'correction','uncertain',true,'dry_run-local') RETURNING id").bind(sibling).fetch_one(store.pool()).await?;
+    let schedule = crate::imaging::tests::claim(&store, child, "schedule").await?;
+    store
+        .schedule_publication(
+            &schedule,
+            child,
+            store.editorial_context(child).await?.revision,
+            0.1,
+            json!({"test":true}),
+            stories_store::PublicationPolicy {
+                account: "dry_run-local",
+                dry_run: true,
+                policy: stories_scheduler::Policy {
+                    daily_cap: 40,
+                    reserved: 5,
+                    breaking_score: 0.8,
+                    min_gap_seconds: 90,
+                },
+                remote_usage: 0,
+                remote_limit: 100,
+                max_age_hours: 6,
+            },
+        )
+        .await?;
+    let pending: i64 = sqlx::query_scalar("SELECT count(*) FROM publications WHERE event_id=$1")
+        .bind(child)
+        .fetch_one(store.pool())
+        .await?;
+    assert_eq!(pending, 0);
+    sqlx::query("UPDATE publications SET status='failed' WHERE id=$1")
+        .bind(uncertain)
+        .execute(store.pool())
+        .await?;
     let correction = crate::publication::tests::dry_fixture(&settings, &store, child).await?;
     let p = store.publication(correction).await?;
     assert_eq!(p.kind, "correction");

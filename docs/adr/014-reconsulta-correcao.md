@@ -48,7 +48,8 @@ em NEEDS_CORRECTION; em simulação ele permanece QUEUED.
 Snapshots, versão do acompanhamento, decisão, evento e outbox são persistidos
 com transações curtas e fencing de lease. Mudança de fonte durante LLM, render
 ou agendamento invalida a prova anterior. Uma revisão aceita não é repetida para
-o mesmo conjunto de hashes. Após a publicação terminal, o acompanhamento
+o mesmo conjunto de hashes. Sob o lock da conta, uma reserva pendente ou incerta
+de outra revisão do mesmo Story bloqueia a próxima reserva até sua reconciliação. Após a publicação terminal, o acompanhamento
 anterior é substituído pelo do novo Story, prevenindo correções paralelas.
 A troca entre simulação e modo real não promove candidatos antigos.
 
