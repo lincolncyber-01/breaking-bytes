@@ -1,0 +1,22 @@
+[package]
+name = "stories-store"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[dependencies]
+chrono.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
+stories-core.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+testcontainers.workspace = true
+
+[lints]
+workspace = true

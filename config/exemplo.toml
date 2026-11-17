@@ -1,0 +1,36 @@
+[pipeline]
+max_age_hours = 6
+cluster_similarity = 0.86
+daily_cap = 40
+breaking_score = 0.80
+min_gap_seconds = 90
+max_rewrite_attempts = 2
+channel_capacity = 32
+
+[database]
+url = 'env:DATABASE_URL'
+max_connections = 10
+timeout_s = 5
+lease_s = 120
+max_attempts = 5
+
+[admin]
+bind = '127.0.0.1:8080'
+token = 'env:ADMIN_TOKEN'
+
+[instagram]
+user_id = 'env:IG_USER_ID'
+access_token = 'env:IG_ACCESS_TOKEN'
+api_version = 'v27.0'
+login = 'facebook'
+dry_run = true
+
+[storage]
+bucket = 'stories-img'
+ttl_minutes = 60
+
+[llm]
+# Modelo escolhido por ambiente; confirmar disponibilidade com a chave no deploy.
+model = 'claude-haiku-5-5'
+timeout_s = 15
+api_key = 'env:LLM_API_KEY'

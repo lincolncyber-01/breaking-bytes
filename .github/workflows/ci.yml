@@ -1,0 +1,37 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: '1'
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar toolchain fixa
+        run: rustup toolchain install 1.100.0 --profile minimal --component clippy --component rustfmt
+      - name: Instalar nextest fixo com checksum
+        run: |
+          curl --fail --silent --show-error --location https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.152/cargo-nextest-0.9.152-x86_64-unknown-linux-gnu.tar.gz -o nextest.tar.gz
+          echo 'd039b43c3e0958441b6ad0a39c8884d018b3d2e8fb9928f209074b1100b5e17a  nextest.tar.gz' | sha256sum --check
+          tar -xzf nextest.tar.gz -C "$HOME/.cargo/bin" cargo-nextest
+      - run: cargo fmt --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo nextest run --workspace --locked
+      - name: Compilar release
+        run: cargo build --release --locked
+      - name: Construir imagem
+        run: docker build -f deploy/Dockerfile -t breaking-bytes:ci .
+  domain-coverage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install 1.100.0 --profile minimal --component llvm-tools-preview
+      - run: cargo install cargo-llvm-cov --version 0.9.1 --locked
+      - run: cargo llvm-cov --package stories-core --locked --fail-under-lines 80 --lcov --output-path lcov.info
