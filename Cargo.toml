@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/core", "crates/config", "crates/store", "crates/app"]
+members = ["crates/core", "crates/config", "crates/store", "crates/normalize", "crates/collectors", "crates/cluster", "crates/app"]
 resolver = "3"
 
 [workspace.package]
@@ -11,6 +11,18 @@ repository = "https://github.com/lincolncyber-01/breaking-bytes"
 
 [workspace.dependencies]
 anyhow = "=1.0.104"
+blake3 = "=1.8.7"
+feed-rs = "=3.0.0"
+htmlescape = "=0.3.1"
+quick-xml = "=0.42.0"
+regex = "=1.13.1"
+reqwest = { version = "=0.13.5", default-features = false, features = ["rustls-no-provider", "http2", "stream"] }
+robotstxt = "=0.3.0"
+rustls = { version = "=0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
+scraper = "=0.29.0"
+unicode-normalization = "=0.1.26"
+url = { version = "=2.5.8", features = ["serde"] }
+wiremock = "=0.6.5"
 axum = "=0.8.9"
 chrono = { version = "=0.4.45", features = ["serde"] }
 figment = { version = "=0.10.19", features = ["toml", "env"] }
@@ -30,6 +42,9 @@ uuid = { version = "=1.29.2", features = ["v4", "serde"] }
 stories-core = { path = "crates/core" }
 stories-config = { path = "crates/config" }
 stories-store = { path = "crates/store" }
+stories-normalize = { path = "crates/normalize" }
+stories-collectors = { path = "crates/collectors" }
+stories-cluster = { path = "crates/cluster" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

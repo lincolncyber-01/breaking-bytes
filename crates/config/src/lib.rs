@@ -11,6 +11,8 @@ use thiserror::Error;
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Settings {
+    #[serde(default)]
+    pub collection: Collection,
     pub pipeline: Pipeline,
     pub database: Database,
     pub admin: Admin,
@@ -19,6 +21,28 @@ pub struct Settings {
     pub llm: Llm,
     #[serde(default)]
     pub sources: Vec<Source>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Collection {
+    pub enabled: bool,
+    pub max_response_bytes: usize,
+    pub max_items: usize,
+    pub per_host: usize,
+    pub user_agent: String,
+}
+
+impl Default for Collection {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            max_response_bytes: 2_097_152,
+            max_items: 200,
+            per_host: 2,
+            user_agent: "BreakingBytes/0.1".into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -148,6 +172,17 @@ impl Settings {
     }
 
     pub fn validate(&self) -> Result<(), ConfigError> {
+        let c = &self.collection;
+        if !(1024..=8_388_608).contains(&c.max_response_bytes)
+            || !(1..=200).contains(&c.max_items)
+            || !(1..=4).contains(&c.per_host)
+            || !c.user_agent.starts_with("BreakingBytes/")
+            || c.user_agent.len() > 256
+            || c.user_agent.chars().any(char::is_control)
+            || self.sources.len() > 32
+        {
+            return Err(ConfigError::Invalid("collection"));
+        }
         let p = &self.pipeline;
         if !(1..=168).contains(&p.max_age_hours)
             || !(0.0..=1.0).contains(&p.cluster_similarity)
@@ -186,6 +221,18 @@ impl Settings {
         }
         let mut names = HashSet::new();
         for source in &self.sources {
+            let parsed =
+                url::Url::parse(&source.url).map_err(|_| ConfigError::Invalid("sources.url"))?;
+            if parsed.host_str().is_none()
+                || !parsed.username().is_empty()
+                || parsed.password().is_some()
+            {
+                return Err(ConfigError::Invalid("sources.url"));
+            }
+            if source.enabled && source.kind == "edgar" && !self.collection.user_agent.contains('@')
+            {
+                return Err(ConfigError::Invalid("SEC exige User-Agent com contato"));
+            }
             if source.name.trim().is_empty()
                 || !names.insert(&source.name)
                 || !matches!(source.layer.as_str(), "A" | "B" | "C" | "D")

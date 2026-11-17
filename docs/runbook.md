@@ -1,6 +1,6 @@
 # Runbook da fundação
 
-Escopo atual: fase 1. O pipeline de notícias e clientes Meta/R2 ainda não existem.
+Escopo atual: fundação e captura. O pipeline editorial e clientes Meta/R2 ainda não existem.
 
 ## Inicialização e migrations
 
@@ -41,12 +41,30 @@ Para investigar, consulte jobs.id, kind, attempts, lease_until, dead_at e
 last_error_code. Não coloque conteúdo de artigos ou segredos em last_error_code.
 Inspecione audit_log e o estado do evento antes de criar um novo job.
 
+## Coleta e observação de 24 horas
+
+Valide o egress antes de ativar `STORIES__COLLECTION__ENABLED=true`. O binário
+recusa proxies de ambiente; não contorne a rede gerenciada da Cloud. Na VPS,
+confirme robots.txt e termos de cada fonte. Para EDGAR, configure User-Agent com
+contato real e mantenha o controle de frequência. Aplique a migration 0002.
+
+Confirme no status administrativo collection_enabled e clustering_mode. Acompanhe
+last_success_at, failures e next_poll_at em sources e os logs JSON de cada lote.
+O validador HTTP só muda após commit dos artigos e jobs. Uma falha no lote conserva
+o cursor e a próxima tentativa usa o estado durável anterior.
+
+Inspecione artigos, article_sightings, event_articles e audit_log. Jobs verify
+aguardam a fase 3 e não devem ser consumidos por um trabalhador genérico.
+Para o aceite de 24 horas, retenha logs completos, datas inicial/final, contagens
+de artigos e eventos e amostras revisadas de agrupamento. A restrição UNIQUE de
+URL não comprova ausência de duplicatas semânticas. Nenhum Story será publicado.
+
 ## GitHub e limites da validação
 
 Use uma conexão GitHub com escrita de conteúdo e workflows no repositório.
 Quando houver várias contas conectadas, selecione explicitamente a conta do
 proprietário lincolncyber-01. Envie mudanças por branch e PR, preservando revisão
-antes de integrar à principal. A fundação está na branch codex/phase-1-foundation.
+antes de integrar à principal. A fundação está integrada à main. A captura está na branch codex/phase-2-collection.
 
 Proteção de branch, CI remoto, credenciais externas, backups, alertas, publicação
 de teste, caos, snapshots, benchmarks e canário ainda precisam dos marcos das

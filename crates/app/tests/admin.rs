@@ -49,6 +49,7 @@ async fn health_auth_pause_and_fail_closed_readiness() -> Result<(), Box<dyn std
         store: store.clone(),
         admin_token: secrets.admin_token,
         dry_run: true,
+        collection_enabled: false,
     };
     let app = router(state.clone());
     for path in ["/health/live", "/health/ready"] {
@@ -135,6 +136,7 @@ async fn exercise_binary(
             .env("DATABASE_URL", url)
             .env("ADMIN_TOKEN", token)
             .env("RUST_LOG", "info,sqlx=warn")
+            .env("STORIES__COLLECTION__ENABLED", "false")
             .env("STORIES_CONFIG", root.join("config/exemplo.toml"))
             .env("STORIES_SOURCES", root.join("config/sources.toml"))
             .env("STORIES__ADMIN__BIND", address.to_string())

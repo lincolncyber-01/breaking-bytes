@@ -59,14 +59,38 @@ fn main() -> Result<()> {
             store: store.clone(),
             admin_token: secrets.admin_token,
             dry_run: settings.instagram.dry_run,
+            collection_enabled: settings.collection.enabled,
         });
+        let (stop_sender,mut server_stop)=tokio::sync::watch::channel(false);
+        let mut pipeline=tokio::spawn(stories_app::collection::run(settings.clone(),store.clone(),server_stop.clone()));
+        let signal_sender=stop_sender.clone();
+        let signal=tokio::spawn(async move{shutdown().await;let _=signal_sender.send(true);});
         tracing::info!(bind = %settings.admin.bind, dry_run = settings.instagram.dry_run,
-            phase = 1, "fundação iniciada; pipeline de notícias ainda indisponível");
-        let result = axum::serve(listener, app)
-            .with_graceful_shutdown(shutdown())
-            .await;
+            phase = 2, collection_enabled=settings.collection.enabled,"serviço iniciado; publicação ainda indisponível");
+        let server=axum::serve(listener, app).with_graceful_shutdown(async move {
+            stories_app::collection::wait_for_stop(&mut server_stop).await;
+        });
+        let server=async move{server.await};
+        tokio::pin!(server);
+        let result=tokio::select! {
+            result=&mut server=>{
+                let _=stop_sender.send(true);
+                result.context("servidor administrativo encerrou com falha")?;
+                tokio::time::timeout(Duration::from_secs(30),&mut pipeline).await.context("shutdown excedeu 30 segundos")?
+                    .context("supervisor encerrou com panic")?
+            }
+            result=&mut pipeline=>{
+                let stopping=*stop_sender.borrow();
+                let _=stop_sender.send(true);
+                result.context("supervisor encerrou com panic")??;
+                if !stopping{anyhow::bail!("pipeline encerrou antes do servidor");}
+                tokio::time::timeout(Duration::from_secs(30),&mut server).await
+                    .context("shutdown HTTP excedeu 30 segundos")?.context("servidor encerrou com falha")
+            }
+        };
+        signal.abort();
         store.close().await;
-        result.context("servidor administrativo encerrou com falha")
+        result
     })
 }
 
