@@ -1,5 +1,7 @@
 # Fase 5 — incremento de reconsulta e correção
 
+Este relatório registra seu incremento histórico. O resultado automático mais recente e as pendências externas constam em [phase-5-operations.md](phase-5-operations.md).
+
 Data: 17/11/2026. A fase 5 continua aberta. A ativação de correções é optativa e
 permanece desabilitada nos exemplos. Não foi usada conta Meta, bucket R2 ou LLM real.
 

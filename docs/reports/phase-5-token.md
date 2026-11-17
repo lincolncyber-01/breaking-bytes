@@ -1,5 +1,7 @@
 # Fase 5 — incremento de ciclo de vida dos tokens
 
+Este relatório registra seu incremento histórico. O resultado automático mais recente e as pendências externas constam em [phase-5-operations.md](phase-5-operations.md).
+
 Data: 17/11/2026. A fase 5 continua aberta; este incremento não declara produção
 pronta nem validação em conta Meta real.
 

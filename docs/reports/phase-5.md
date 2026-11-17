@@ -1,5 +1,7 @@
 # Fase 5 — incremento de publicação, ainda em andamento
 
+Este relatório registra seu incremento histórico. O resultado automático mais recente e as pendências externas constam em [phase-5-operations.md](phase-5-operations.md).
+
 Data: 17/11/2026. Este incremento não encerra a fase 5 nem declara produção pronta.
 
 Foram adicionados crates scheduler e publisher, migration 0005, worker de
