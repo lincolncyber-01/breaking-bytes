@@ -68,7 +68,8 @@ Decisões completas: ADRs 012 e 013; operação: docs/tokens.md.
 
 ## Próximos passos da fase 5
 
-1. Correções: reconsulta de fontes publicadas, tipo correction e trilha de evidência.
+1. Reconsulta, tipo correction e trilha de evidência implementados no incremento
+   [phase-5-revisions.md](phase-5-revisions.md); avaliação semântica real pendente.
 2. Resolução administrativa auditada de publicação incerta/sem identificador.
 3. Pesos configuráveis e calibração da prioridade, sem alegar classificador pronto.
 4. Integração externa de rotação de segredo e validação dos fluxos com conta real.

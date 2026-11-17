@@ -55,8 +55,9 @@ não demonstra entrega automática em toda falha possível da API externa.
 1. Monitoramento e renovação conservada foram implementados no incremento descrito
    em phase-5-token.md. Faltam rotação externa de valor alterado e validação Meta real,
    conforme ADR-013.
-2. Implementar reconsulta das fontes publicadas por 24 horas e criação de correções
-   com trilha de evidência; integrar o tipo correction ao caminho editorial.
+2. Reconsulta de fontes, correção explícita e trilha de evidência implementadas em
+   [phase-5-revisions.md](phase-5-revisions.md). Falta avaliar a classificação
+   semântica no corpus real e no staging.
 3. Implementar resolução administrativa auditada de mídia sem ID e ambiguidade.
 4. Calibrar ou substituir os sinais conservadores com corpus revisado de notícias;
    medir latência e memória da aplicação completa com publicação habilitada.
@@ -66,7 +67,7 @@ não demonstra entrega automática em toda falha possível da API externa.
    da fase 4 permanecem válidos para o renderizador isolado, sem extrapolação.
 
 Não foram fornecidas credenciais Meta, R2 ou LLM neste ambiente. Não houve upload
-real ou publicação na conta. As decisões e desvios estão nos ADRs 010, 011 e 012.
+real ou publicação na conta. As decisões e desvios estão nos ADRs 010 a 014.
 A garantia forte de zero perda e zero duplicatas sob partição permanece inviável
 sem prova adicional de idempotência remota; incerteza é preservada explicitamente.
 
@@ -75,7 +76,9 @@ sem prova adicional de idempotência remota; incerteza é preservada explicitame
 1. Criar/configurar app Meta, conta profissional e vínculo de Página aplicável;
    concluir permissões, papéis, App Review e autorização de publicação exigidos.
 2. Obter token pelo fluxo escolhido e guardar IG_USER_ID/IG_ACCESS_TOKEN somente
-   no ambiente. Validar o prazo real; ainda não há renovação automática neste código.
+   no ambiente. Validar tipo, permissões e prazo real; configurar também os dados
+   de inspeção ou recibo de emissão em [tokens.md](../tokens.md). Renovação com
+   valor conservado está implementada; troca do valor exige rotação externa.
 3. Criar bucket R2 e credencial limitada ao bucket. Configurar as três variáveis R2
    e lifecycle de um dia para health/, preservando stories/ incertos.
 4. Configurar chave LLM apenas quando habilitar redação e validar seu corpus.
@@ -84,3 +87,7 @@ sem prova adicional de idempotência remota; incerteza é preservada explicitame
 6. Concluir alertas e runbook operacional da fase 6 antes do aceite de produção.
 
 O incremento de token e suas evidências estão em [phase-5-token.md](phase-5-token.md).
+
+O bloco de 69 testes acima corresponde ao incremento inicial de publicação.
+Os resultados posteriores de tokens e reconsulta estão nos relatórios específicos;
+o CI do commit atual e seus portões completos são registrados no PR #5.
