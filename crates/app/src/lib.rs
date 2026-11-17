@@ -20,6 +20,7 @@ use tower::{ServiceBuilder, limit::ConcurrencyLimitLayer};
 pub mod collection;
 mod editorial;
 pub mod evaluation;
+pub mod imaging;
 pub mod pipeline;
 
 #[derive(Clone)]
@@ -29,6 +30,7 @@ pub struct AppState {
     pub dry_run: bool,
     pub collection_enabled: bool,
     pub editorial_enabled: bool,
+    pub imaging_enabled: bool,
 }
 
 pub fn router(state: AppState) -> Router {
@@ -97,7 +99,9 @@ async fn ready(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         code,
         Json(Readiness {
             status: if healthy { "ready" } else { "not_ready" },
-            scope: if state.editorial_enabled {
+            scope: if state.imaging_enabled {
+                "imaging"
+            } else if state.editorial_enabled {
                 "editorial"
             } else if state.collection_enabled {
                 "collection"
@@ -112,9 +116,9 @@ async fn ready(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 async fn status(State(state): State<Arc<AppState>>) -> Response {
     match state.store.paused().await {
         Ok(paused) => Json(serde_json::json!({
-            "paused": paused, "dry_run": state.dry_run, "phase": 3,
+            "paused": paused, "dry_run": state.dry_run, "phase": 4,
             "collection_enabled":state.collection_enabled,"clustering_mode":"hash_entities",
-            "editorial_enabled":state.editorial_enabled,
+            "editorial_enabled":state.editorial_enabled,"imaging_enabled":state.imaging_enabled,
             "pipeline_available": false,
         }))
         .into_response(),

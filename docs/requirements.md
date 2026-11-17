@@ -1,6 +1,6 @@
 # Matriz de rastreabilidade incremental
 
-Estado em 16/11/2026. Esta matriz registra o que existe nas fases 1 a 3.
+Estado em 17/11/2026. Esta matriz registra o que existe nas fases 1 a 4.
 
 | Requisito do blueprint | Implementação | Verificação / estado |
 | --- | --- | --- |
@@ -18,7 +18,7 @@ Estado em 16/11/2026. Esta matriz registra o que existe nas fases 1 a 3.
 | Admin protegida e kill switch | /admin/status, /admin/pause | Autenticação, corpo limitado e pausa persistida |
 | Shutdown gracioso | app::main | Processo recebe SIGTERM e encerra com sucesso |
 | Formatação, Clippy, nextest | CI e comandos locais | Resultados em reports/phase-1.md |
-| Cobertura de domínio >=80% | cargo-llvm-cov | Core, normalize, cluster, verify e editorial: 91,05% de linhas na fase 3 |
+| Cobertura de domínio >=80% | cargo-llvm-cov | Core, normalize, cluster, verify, editorial e imaging: 92,03% de linhas na fase 4 |
 | CI remoto verde | .github/workflows/ci.yml | Fases 1 e 2 aprovadas; fase 3 nos Checks da PR |
 | Container mínimo e não root | deploy/Dockerfile, Compose | Build da fase 1 aprovado no CI |
 | Feeds, SSRF, parsers, clusters | crates/collectors, normalize, cluster; store/collection | Contratos, propriedades e Postgres; embeddings/WebSub pendentes |
@@ -27,8 +27,10 @@ Estado em 16/11/2026. Esta matriz registra o que existe nas fases 1 a 3.
 | Redação e contrato LLM | crates/editorial, app/editorial | Schema, prompts separados e contratos HTTP simulados |
 | Reescritas e outbox de render | migration 0003, store/editorial | Limite de duas, fencing, versões concorrentes e CHECKED+outbox atômicos |
 | Fidelidade e prompt injection | Editorial, fixtures/evaluation.json, --evaluate-editorial | Rejeições locais e separação de prompts testadas; fidelidade real e revisão humana pendentes |
-| Imagens, Inter, render, snapshots | Fase 4 | Não implementado |
-| Benchmark de render e memória | Fases 4 e 6 | Não executado |
+| Imagens, Inter, render, snapshots | crates/imaging, assets/fonts, tests/golden | MIME, pixels, EXIF, licenças e seis referências sem diferença; detecção visual automática substituída por revisão humana (ADR-009) |
+| Artefato durável e outbox schedule | app/imaging, store/imaging, migration 0004 | Postgres real: fencing, rollback, retomada e invalidação após render |
+| Benchmark de render e memória | imaging/benches, examples/benchmark | p95 76,5 ms / 85,2 ms em 16 MP; pico 159 MiB; máximo 413,8 ms; escopo CPU isolado |
+| Detecção e memória da aplicação completa | Fases 2 e 6 | Coleta real, rede, LLM e carga completa ainda não medidos |
 | R2, Meta, reconciliação e caos | Fase 5 | Não implementado; ADR-002 registra limites |
 | Métricas, alertas e backups | Fase 6 | Não implementado |
 | Audit, deny, fuzz e Trivy | Fase 6 | Ainda não configurados/executados |

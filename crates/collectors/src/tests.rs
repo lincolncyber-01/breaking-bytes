@@ -6,6 +6,44 @@ use wiremock::{
 };
 
 #[tokio::test]
+async fn image_download_keeps_mime_and_enforces_its_own_bounded_limit()
+-> Result<(), Box<dyn std::error::Error>> {
+    let server = MockServer::start().await;
+    Mock::given(path("/robots.txt"))
+        .respond_with(ResponseTemplate::new(200).set_body_string("User-agent: *\nAllow: /\n"))
+        .mount(&server)
+        .await;
+    Mock::given(path("/image"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("content-type", "image/png")
+                .set_body_bytes(vec![42; 4096]),
+        )
+        .mount(&server)
+        .await;
+    let client = http::HttpClient::local(&server.uri(), 1024)?;
+    let url = format!("{}/image", server.uri());
+    assert!(
+        client
+            .get(&url, &http::Validators::default())
+            .await
+            .is_err()
+    );
+    let response = client
+        .get_bounded(&url, &http::Validators::default(), 8192)
+        .await?;
+    assert_eq!(response.content_type.as_deref(), Some("image/png"));
+    assert_eq!(response.body.len(), 4096);
+    assert!(
+        client
+            .get_bounded(&url, &http::Validators::default(), 8 * 1024 * 1024 + 1)
+            .await
+            .is_err()
+    );
+    Ok(())
+}
+
+#[tokio::test]
 async fn confirms_publication_date_from_original_article_not_updated_feed()
 -> Result<(), Box<dyn std::error::Error>> {
     let server = MockServer::start().await;

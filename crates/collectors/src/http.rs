@@ -25,6 +25,7 @@ pub struct Response {
     pub body: Vec<u8>,
     pub validators: Validators,
     pub url: Url,
+    pub content_type: Option<String>,
 }
 
 struct HostState {
@@ -162,11 +163,24 @@ impl HttpClient {
     }
 
     pub async fn get(&self, url: &str, validators: &Validators) -> Result<Response, HttpError> {
+        self.get_bounded(url, validators, self.max_bytes).await
+    }
+
+    /// Mantém DNS/robots/redirecionamentos e permite o teto específico de imagens.
+    pub async fn get_bounded(
+        &self,
+        url: &str,
+        validators: &Validators,
+        max_bytes: usize,
+    ) -> Result<Response, HttpError> {
+        if !(1..=8 * 1024 * 1024).contains(&max_bytes) {
+            return Err(HttpError::Limits);
+        }
         self.ensure_news_egress()?;
         let url = Url::parse(url).map_err(|_| HttpError::Url)?;
         self.validate(&url)?;
         self.robots(&url).await?;
-        let response = self.raw(url, validators, true).await?;
+        let response = self.raw(url, validators, true, max_bytes).await?;
         Ok(response)
     }
 
@@ -187,7 +201,9 @@ impl HttpClient {
             robots.set_path("/robots.txt");
             robots.set_query(None);
             robots.set_fragment(None);
-            let response = self.raw(robots, &Validators::default(), false).await?;
+            let response = self
+                .raw(robots, &Validators::default(), false, 65_536)
+                .await?;
             let body = match response.status {
                 200 => {
                     if response.body.len() > 65_536 {
@@ -242,6 +258,7 @@ impl HttpClient {
         mut url: Url,
         validators: &Validators,
         check_redirect_robots: bool,
+        max_bytes: usize,
     ) -> Result<Response, HttpError> {
         tokio::time::timeout(Duration::from_secs(10), async {
             for hop in 0..=3 {
@@ -332,13 +349,14 @@ impl HttpClient {
                 };
                 if response
                     .content_length()
-                    .is_some_and(|n| n > self.max_bytes as u64)
+                    .is_some_and(|n| n > max_bytes as u64)
                 {
                     return Err(HttpError::Limits);
                 }
                 let mut body = Vec::new();
+                let content_type = bounded_header(response.headers(), header::CONTENT_TYPE);
                 while let Some(chunk) = response.chunk().await.map_err(|_| HttpError::Network)? {
-                    if body.len().saturating_add(chunk.len()) > self.max_bytes {
+                    if body.len().saturating_add(chunk.len()) > max_bytes {
                         return Err(HttpError::Limits);
                     }
                     body.extend_from_slice(&chunk);
@@ -348,6 +366,7 @@ impl HttpClient {
                     body,
                     validators: headers,
                     url,
+                    content_type,
                 });
             }
             Err(HttpError::Redirect)

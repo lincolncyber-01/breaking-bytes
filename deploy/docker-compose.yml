@@ -43,6 +43,11 @@ services:
       DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL com host postgres}
       ADMIN_TOKEN: ${ADMIN_TOKEN:?Defina ADMIN_TOKEN}
       STORIES__ADMIN__BIND: 0.0.0.0:8080
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      STORIES__LLM__ENABLED: ${STORIES__LLM__ENABLED:-false}
+      STORIES__COLLECTION__ENABLED: ${STORIES__COLLECTION__ENABLED:-false}
+    volumes:
+      - story-artifacts:/app/artifacts
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -67,3 +72,4 @@ services:
         max-file: '3'
 volumes:
   postgres-data:
+  story-artifacts:

@@ -14,7 +14,7 @@ pub async fn run(
     key: Option<Secret>,
     mut stop: watch::Receiver<bool>,
 ) -> Result<()> {
-    if !settings.collection.enabled && !settings.llm.enabled {
+    if !settings.collection.enabled && !settings.llm.enabled && !settings.imaging.enabled {
         crate::collection::wait_for_stop(&mut stop).await;
         return Ok(());
     }
@@ -24,7 +24,9 @@ pub async fn run(
         settings.collection.per_host,
     )?;
     // A API fixa do LLM pode usar proxy; dados jornalísticos exigem DNS verificável.
-    http.ensure_news_egress()?;
+    if settings.collection.enabled || settings.llm.enabled {
+        http.ensure_news_egress()?;
+    }
     for source in settings.sources.iter().filter(|s| s.enabled) {
         store
             .register_source(
@@ -50,6 +52,14 @@ pub async fn run(
         http.clone(),
         stop.clone(),
     ));
+    if settings.imaging.enabled {
+        tasks.spawn(crate::imaging::run(
+            settings.clone(),
+            store.clone(),
+            http.clone(),
+            stop.clone(),
+        ));
+    }
     if settings.llm.enabled {
         let key = key.context("LLM habilitado exige chave no ambiente")?;
         let client = AnthropicClient::new(

@@ -90,3 +90,24 @@ fn editorial_requires_key_even_in_dry_run_and_valid_origin_groups()
     config.validate()?;
     Ok(())
 }
+
+#[test]
+fn imaging_limits_paths_and_manifest_are_validated() -> Result<(), Box<dyn std::error::Error>> {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let config = Settings::load(
+        &root.join("config/exemplo.toml"),
+        &root.join("config/sources.toml"),
+    )?;
+    assert!(std::path::Path::new(&config.imaging.manifest).is_file());
+    for change in 0..4 {
+        let mut config = settings()?;
+        match change {
+            0 => config.imaging.max_pixels = 16_000_001,
+            1 => config.imaging.max_bytes = 8 * 1024 * 1024 + 1,
+            2 => config.imaging.allowed_domains = vec!["*.example.com".into()],
+            _ => config.imaging.artifacts_dir = "../outside".into(),
+        }
+        assert!(config.validate().is_err());
+    }
+    Ok(())
+}

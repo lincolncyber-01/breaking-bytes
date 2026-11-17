@@ -15,6 +15,14 @@ min_gap_seconds = 90
 max_rewrite_attempts = 2
 channel_capacity = 32
 
+[imaging]
+enabled = true
+manifest = 'images.json'
+allowed_domains = []
+artifacts_dir = 'artifacts'
+max_bytes = 8388608
+max_pixels = 16000000
+
 [database]
 url = 'env:DATABASE_URL'
 max_connections = 10
