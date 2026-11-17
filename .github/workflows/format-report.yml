@@ -17,13 +17,14 @@ jobs:
         shell: bash
         run: |
           python3 - <<'PY'
-          import json,subprocess,os
+          import json,subprocess,os,base64
           from pathlib import Path
           paths=subprocess.check_output(["git","diff","--name-only"],text=True).splitlines()
           elements=[{"path":p,"mode":"100644","type":"blob","content":Path(p).read_text()} for p in paths]
           subprocess.run(["git","add","--update"],check=True)
           payload=json.dumps({"base":os.environ["GITHUB_SHA"],"tree":subprocess.check_output(["git","write-tree"],text=True).strip(),"elements":elements},ensure_ascii=False)
           print("FORMAT_SIZE "+str(len(payload)))
-          for index in range(0,len(payload),10000):
-              print("FORMAT_CHUNK "+str(index//10000)+" "+json.dumps(payload[index:index+10000],ensure_ascii=False))
+          encoded=base64.b64encode(payload.encode()).decode()
+          for index in range(0,len(encoded),10000):
+              print("FORMAT_B64_CHUNK "+str(index//10000)+" "+json.dumps(encoded[index:index+10000]))
           PY
