@@ -1,6 +1,7 @@
-# Runbook da fundação
+# Runbook operacional
 
-Escopo atual: fundação e captura. O pipeline editorial e clientes Meta/R2 ainda não existem.
+Escopo atual: fundação, captura, editorial, renderização e publicação em dry_run;
+clientes Meta/R2 e correções disponíveis para validação em staging. A fase 5 segue aberta.
 
 ## Inicialização e migrations
 
@@ -18,7 +19,8 @@ volume para tentar corrigir uma migration.
 
 GET /health/live retorna 200 enquanto a API responde.
 GET /health/ready executa uma consulta limitada a dois segundos; retorna 503 se
-o banco não responde ou dry_run=false. A resposta declara scope=foundation.
+o banco não responde. No modo real, exige publicação habilitada, preflight e token
+válido. A resposta declara o estágio habilitado em scope.
 O comando --healthcheck sonda a readiness por TCP local, com limites de tempo.
 
 Para pausar, envie PUT /admin/pause com {"paused":true} e token Bearer no
@@ -164,3 +166,40 @@ administrativo identifica tipo, origem e falha sem revelar o segredo. Em
 rotation_required ou refresh_uncertain, obtenha uma credencial pelo fluxo Meta,
 atualize o ambiente e recrie o processo; não remova a barreira por SQL. Alertas
 locais são deduplicados; entrega externa ainda depende da fase 6.
+
+## Reconsulta e correção automática
+
+Aplique a migration 0007 antes de iniciar o binário atualizado. Ative
+`STORIES__CORRECTIONS__ENABLED=true` em uma rota com DNS/SSRF validado. Mantenha
+`STORIES__INSTAGRAM__DRY_RUN=true` durante a validação. Para decidir e redigir,
+ative também `STORIES__LLM__ENABLED=true` e forneça a chave pelo ambiente. Sem LLM,
+a reconsulta grava observações e deixa os jobs `review_revision` na fila.
+
+O intervalo padrão é 300 segundos por publicação. A janela é 24 horas; score
+maior ou igual a 0,8 estende para 72 horas, configuráveis em `[corrections]`.
+O score atual é conservador e não representa impacto calibrado em corpus real.
+Falha de todas as fontes aumenta o intervalo exponencialmente até uma hora,
+com jitter. Nenhuma falha, remoção HTTP ou mudança apenas de data confirma retratação.
+A pausa administrativa suspende novas aquisições de reconsulta e revisão.
+
+Consulte `publication_watches`, `publication_source_snapshots`,
+`publication_reviews` e `audit_log`. Os estados `ignored` e `uncertain` não criam
+Story; `superseded` indica prova substituída ou expirada. O baseline é a cópia
+editorial congelada na reserva original, preservada mesmo quando a tabela de
+artigos recebe novas capturas. Publicações anteriores à migration, sem essa cópia,
+não ganham baseline inferido. Investigue-as manualmente.
+
+Uma decisão publicável cria evento filho `update` ou `correction`, passando de
+novo por verificação, redação, checagem independente, renderização e orçamento.
+A correção usa a reserva de capacidade, mas continua respeitando o teto total e
+a cota remota. A etiqueta CORREÇÃO é produzida pelo template existente. A fonte
+precisa conservar identidade e conteúdo confirmado até as barreiras de envio.
+O acompanhamento anterior encerra após a nova publicação terminal; o novo Story
+recebe seu próprio baseline. Simulação termina como `dry_run`, sem ID de mídia.
+
+Um job com `dead_at` exige investigação da causa e retomada administrativa sob
+pausa; não apague o histórico nem crie outra publicação para contornar um estado
+incerto. Ao mudar entre dry_run e real, o acompanhamento antigo fica adiado e
+nenhum candidato de simulação é promovido. Valide a classificação semântica em
+corpus real antes de habilitar publicação real: citações literais não provam,
+por si só, a relação entre uma nota e o Story anterior.

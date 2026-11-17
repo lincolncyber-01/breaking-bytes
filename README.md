@@ -7,8 +7,8 @@ Implementação incremental: **fases 1 a 4 disponíveis; fase 5 em andamento**.
 O serviço coleta, confirma, redige, checa, renderiza e consome a publicação em
 `dry_run`. O incremento atual adiciona clientes Meta/R2, reservas, barreira de
 publicação e reconciliação conservadora. Há testes com APIs simuladas e Postgres;
-publicação real, rotação externa do token, correções automáticas e outros portões ainda
-estão pendentes. Consulte o [relatório da fase 5](docs/reports/phase-5.md).
+a reconsulta e a correção automática estão implementadas com ativação explícita.
+Publicação real, rotação externa do token e os portões de staging continuam pendentes. Consulte o [relatório da fase 5](docs/reports/phase-5.md).
 
 ## Ambiente local
 
@@ -137,3 +137,11 @@ partem de recibo de emissão vinculado ao hash; essa origem fica explícita. Tok
 com valor alterado exigem rotação no ambiente, conforme o ADR-013.
 
 Evidências e pendências do incremento: [relatório de tokens](docs/reports/phase-5-token.md).
+
+A reconsulta das fontes de Stories publicados é optativa:
+`STORIES__CORRECTIONS__ENABLED=true`. Ela acompanha 24 horas, ou 72 horas acima
+do limiar de impacto configurado. Para classificar mudanças e gerar um Story,
+`llm.enabled` também deve estar ativo. Correção exige nota explícita, citações
+literais e uma checagem independente. O fluxo preserva o Story original, a data da
+matéria e o modo de simulação. Leia a [ADR-014](docs/adr/014-reconsulta-correcao.md)
+e o [contrato da revisão](docs/reports/phase-5-revisions.md).

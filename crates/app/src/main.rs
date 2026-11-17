@@ -110,6 +110,7 @@ fn main() -> Result<()> {
             editorial_enabled: settings.llm.enabled,
             imaging_enabled: settings.imaging.enabled,
             publishing_enabled:settings.publishing.enabled,
+            corrections_enabled:settings.corrections.enabled,
             publishing_ready:publishing_ready.clone(),
             token_state:token_state.clone(),
         });

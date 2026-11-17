@@ -65,7 +65,7 @@ impl CompletionClient for AnthropicClient {
             return Err(LlmError::Input);
         }
         let body = json!({"model":self.model,"max_tokens":4096,"thinking":{"type":"disabled"},
-            "system":match task{Task::Draft=>DRAFT_SYSTEM,Task::Check=>CHECK_SYSTEM},
+            "system":match task{Task::Draft=>DRAFT_SYSTEM,Task::Check=>CHECK_SYSTEM,Task::ReviewChange=>crate::revisions::REVIEW_SYSTEM,Task::CheckRevision=>crate::revisions::CHECK_REVISION_SYSTEM},
             "messages":[{"role":"user","content":content}],
             "output_config":{"effort":"medium","format":{"type":"json_schema","schema":Editorial::schema(task)}}});
         tokio::time::timeout(self.timeout, async {

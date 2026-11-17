@@ -193,6 +193,71 @@ impl Collector {
         })
     }
 
+    /// Reconsulta de fonte publicada: limite de idade é o da janela de acompanhamento.
+    pub async fn revisit(
+        &self,
+        kind: SourceKind,
+        source_url: &str,
+        article_url: &str,
+        now: DateTime<Utc>,
+    ) -> Result<Option<stories_core::CapturedRevision>, CollectorError> {
+        if kind == SourceKind::Hackernews {
+            return Ok(None);
+        }
+        if matches!(kind, SourceKind::Rss | SourceKind::Sitemap) {
+            let page = self.http.get(article_url, &Validators::default()).await?;
+            if page.status != 200 {
+                return Ok(None);
+            }
+            let captured = self
+                .cpu_work(move || {
+                    let text =
+                        std::str::from_utf8(&page.body).map_err(|_| CollectorError::Parse)?;
+                    stories_normalize::article_revision(&page.url, text)
+                        .map_err(|_| CollectorError::Parse)
+                })
+                .await?;
+            let expected =
+                stories_normalize::canonical_url(article_url).map_err(|_| CollectorError::Parse)?;
+            if captured.article.url != expected.as_str() {
+                return Ok(None);
+            }
+            Ok(Some(captured))
+        } else {
+            let batch = self
+                .collect(kind, source_url, &Validators::default(), now)
+                .await?;
+            let expected =
+                stories_normalize::canonical_url(article_url).map_err(|_| CollectorError::Parse)?;
+            let found = batch
+                .articles
+                .into_iter()
+                .find(|a| stories_normalize::canonical_url(&a.url).is_ok_and(|u| u == expected));
+            self.cpu_work(move || {
+                found
+                    .map(|mut article| {
+                        let notice = stories_normalize::revision_notice(&article.excerpt)
+                            .map_err(|_| CollectorError::Parse)?;
+                        article.title = stories_normalize::plain_text(&article.title, 512)
+                            .map_err(|_| CollectorError::Parse)?;
+                        article.excerpt = stories_normalize::plain_text(&article.excerpt, 2000)
+                            .map_err(|_| CollectorError::Parse)?;
+                        if let Some(ref note) = notice
+                            && !article.excerpt.contains(note)
+                        {
+                            article.excerpt = format!(
+                                "{note}\n{}",
+                                article.excerpt.chars().take(1499).collect::<String>()
+                            );
+                        }
+                        Ok(stories_core::CapturedRevision { article, notice })
+                    })
+                    .transpose()
+            })
+            .await
+        }
+    }
+
     /// Confirma data de publicação e material na origem antes de liberar a redação.
     pub async fn confirm(
         &self,

@@ -1,5 +1,7 @@
 //! Elegibilidade factual conservadora, separada da geração de texto.
 
+pub mod revisions;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;

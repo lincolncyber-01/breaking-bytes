@@ -560,4 +560,4 @@ async fn read_artifact(root: &Path, relative: &str, hash: &[u8], length: i64) ->
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

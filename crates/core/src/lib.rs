@@ -15,6 +15,14 @@ pub struct CapturedArticle {
     pub published_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
+/// Reconsulta conserva publicação original e separa a nota editorial do trecho comum.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CapturedRevision {
+    pub article: CapturedArticle,
+    pub notice: Option<String>,
+}
+
 /// Estados persistidos com os nomes definidos no blueprint.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]

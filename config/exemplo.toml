@@ -51,6 +51,14 @@ inspection_token = 'env:META_INSPECTION_TOKEN'
 page_id = 'env:FB_PAGE_ID'
 oauth_receipt = 'env:IG_TOKEN_RECEIPT'
 
+[corrections]
+enabled = false
+interval_s = 300
+window_hours = 24
+high_impact_hours = 72
+high_impact_score = 0.80
+max_sources = 4
+
 [publishing]
 enabled = true
 reserved_slots = 5

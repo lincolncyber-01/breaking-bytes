@@ -144,11 +144,21 @@ impl Processor {
         let primary = assessment.sources.first().ok_or(StoreError::InvalidJob)?;
         let now = chrono::Utc::now();
         let cutoff = now - chrono::Duration::hours(i64::from(settings.pipeline.max_age_hours));
-        if assessment
-            .sources
-            .iter()
-            .any(|s| !s.date_confirmed || s.published_at.is_none_or(|d| d < cutoff || d > now))
-        {
+        let fresh = if context.review.is_some() {
+            store
+                .revision_fresh(
+                    event,
+                    settings.pipeline.max_age_hours,
+                    settings.instagram.dry_run,
+                )
+                .await?
+        } else {
+            !assessment
+                .sources
+                .iter()
+                .any(|s| !s.date_confirmed || s.published_at.is_none_or(|d| d < cutoff || d > now))
+        };
+        if !fresh {
             store
                 .editorial_commit(
                     job,
@@ -334,4 +344,4 @@ pub async fn example(output: &Path) -> Result<()> {
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

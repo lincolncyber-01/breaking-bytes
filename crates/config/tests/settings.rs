@@ -182,3 +182,26 @@ fn token_credentials_follow_login_and_timing_bounds() -> Result<(), Box<dyn std:
     assert!(config.validate().is_err());
     Ok(())
 }
+
+#[test]
+fn correction_windows_and_bounds_are_validated() -> Result<(), Box<dyn std::error::Error>> {
+    let config = settings()?;
+    assert!(!config.corrections.enabled);
+    assert_eq!(config.corrections.window_hours, 24);
+    assert_eq!(config.corrections.high_impact_hours, 72);
+    for mutation in 0..8 {
+        let mut bad = config.clone();
+        match mutation {
+            0 => bad.corrections.interval_s = 59,
+            1 => bad.corrections.interval_s = 3601,
+            2 => bad.corrections.window_hours = 0,
+            3 => bad.corrections.high_impact_hours = 23,
+            4 => bad.corrections.high_impact_hours = 169,
+            5 => bad.corrections.high_impact_score = f64::NAN,
+            6 => bad.corrections.max_sources = 0,
+            _ => bad.corrections.max_sources = 5,
+        };
+        assert!(bad.validate().is_err());
+    }
+    Ok(())
+}

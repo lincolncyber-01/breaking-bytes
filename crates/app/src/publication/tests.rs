@@ -467,3 +467,23 @@ async fn dry_run_and_publication_crash_recovery_use_postgres_and_http() -> Resul
     tokio::fs::remove_dir_all(root).await?;
     Ok(())
 }
+
+/// Percorre os workers reais de agendamento e simulação sem configurar serviços externos.
+pub(crate) async fn dry_fixture(settings: &Settings, store: &Store, event: i64) -> Result<i64> {
+    let publisher = Publisher {
+        settings: settings.clone(),
+        account: "dry_run-local".into(),
+        remote: None,
+        healthy: Arc::new(AtomicBool::new(true)),
+    };
+    let schedule = crate::imaging::tests::claim(store, event, "schedule").await?;
+    publisher.process(store, &schedule).await?;
+    let job = publish_job(store).await?;
+    publisher.process(store, &job).await?;
+    let id: i64 = sqlx::query_scalar("SELECT id FROM publications WHERE event_id=$1")
+        .bind(event)
+        .fetch_one(store.pool())
+        .await?;
+    assert_eq!(store.publication(id).await?.status, "dry_run");
+    Ok(id)
+}

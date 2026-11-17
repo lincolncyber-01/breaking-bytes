@@ -53,6 +53,7 @@ impl CompletionClient for FixtureClient {
             return Err(LlmError::Refusal);
         }
         match task {
+            Task::ReviewChange | Task::CheckRevision => Err(LlmError::Input),
             Task::Draft => {
                 let count = self.drafts.fetch_add(1, Ordering::SeqCst);
                 if matches!(self.mode, Mode::Invalid)

@@ -17,6 +17,8 @@ pub struct Settings {
     pub imaging: Imaging,
     #[serde(default)]
     pub publishing: Publishing,
+    #[serde(default)]
+    pub corrections: Corrections,
     pub pipeline: Pipeline,
     pub database: Database,
     pub admin: Admin,
@@ -25,6 +27,29 @@ pub struct Settings {
     pub llm: Llm,
     #[serde(default)]
     pub sources: Vec<Source>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Corrections {
+    pub enabled: bool,
+    pub interval_s: u32,
+    pub window_hours: u32,
+    pub high_impact_hours: u32,
+    pub high_impact_score: f64,
+    pub max_sources: usize,
+}
+impl Default for Corrections {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            interval_s: 300,
+            window_hours: 24,
+            high_impact_hours: 72,
+            high_impact_score: 0.8,
+            max_sources: 4,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -291,6 +316,16 @@ impl Settings {
     }
 
     pub fn validate(&self) -> Result<(), ConfigError> {
+        let c = &self.corrections;
+        if !(60..=3600).contains(&c.interval_s)
+            || !(1..=72).contains(&c.window_hours)
+            || !(c.window_hours..=168).contains(&c.high_impact_hours)
+            || !c.high_impact_score.is_finite()
+            || !(0.0..=1.0).contains(&c.high_impact_score)
+            || !(1..=4).contains(&c.max_sources)
+        {
+            return Err(ConfigError::Invalid("corrections"));
+        }
         if self.publishing.reserved_slots > 79 {
             return Err(ConfigError::Invalid("publishing.reserved_slots"));
         }

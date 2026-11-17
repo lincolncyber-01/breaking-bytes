@@ -175,9 +175,9 @@ impl Store {
             state: String,
             content_revision: i64,
             verified_revision: Option<i64>,
-            parent_event_id: Option<i64>,
+            publication_kind: String,
         }
-        let e:Candidate=sqlx::query_as("SELECT state,content_revision,verified_revision,parent_event_id FROM events WHERE id=$1 FOR UPDATE").bind(event).fetch_one(&mut *tx).await.map_err(database_error)?;
+        let e:Candidate=sqlx::query_as("SELECT state,content_revision,verified_revision,publication_kind FROM events WHERE id=$1 FOR UPDATE").bind(event).fetch_one(&mut *tx).await.map_err(database_error)?;
         let paused: bool =
             sqlx::query_scalar("SELECT paused FROM pipeline_control WHERE id=true FOR SHARE")
                 .fetch_one(&mut *tx)
@@ -191,16 +191,18 @@ impl Store {
         {
             finish(&mut tx, job).await?;
         } else {
-            let kind = if e.parent_event_id.is_some() {
-                "update"
-            } else {
-                "new"
-            };
+            let kind = e.publication_kind.as_str();
             let a:PublicationArtifact=sqlx::query_as("SELECT artifact_path,content_hash,byte_length,revision,dry_run FROM rendered_stories WHERE event_id=$1 AND revision=$2 ORDER BY created_at DESC LIMIT 1").bind(event).bind(revision).fetch_one(&mut *tx).await.map_err(database_error)?;
             if a.dry_run != options.dry_run {
                 return Err(StoreError::Conflict);
             }
-            let fresh:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM event_articles WHERE event_id=$1) AND NOT EXISTS(SELECT 1 FROM event_articles ea JOIN articles a ON a.id=ea.article_id WHERE ea.event_id=$1 AND (a.published_at IS NULL OR a.published_at<now()-make_interval(hours=>$2) OR a.published_at>now()))").bind(event).bind(options.max_age_hours as i32).fetch_one(&mut *tx).await.map_err(database_error)?;
+            let fresh: bool = sqlx::query_scalar("SELECT publication_evidence_fresh($1,$2,$3)")
+                .bind(event)
+                .bind(options.max_age_hours as i32)
+                .bind(options.dry_run)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(database_error)?;
             if !fresh {
                 sqlx::query("UPDATE events SET state='REJECTED',reason='publication_evidence_expired' WHERE id=$1").bind(event).execute(&mut *tx).await.map_err(database_error)?;
                 audit(
@@ -212,9 +214,9 @@ impl Store {
                 .await?;
                 finish(&mut tx, job).await?;
             } else {
-                match decision(&mut tx, options, -1, score, false).await? {
+                match decision(&mut tx, options, -1, score, kind == "correction").await? {
                     Decision::Ready => {
-                        let id:Option<i64>=sqlx::query_scalar("INSERT INTO publications(event_id,kind,seq,status,dry_run,account_key,revision,artifact_hash) VALUES($1,$2,0,'creating',$3,$4,$5,$6) ON CONFLICT(event_id,kind,seq) DO NOTHING RETURNING id")
+                        let id:Option<i64>=sqlx::query_scalar("INSERT INTO publications(event_id,kind,seq,status,dry_run,account_key,revision,artifact_hash,editorial_snapshot) VALUES($1,$2,0,'creating',$3,$4,$5,$6,(SELECT jsonb_build_object('draft',draft_json,'assessment',assessment_json) FROM events WHERE id=$1)) ON CONFLICT(event_id,kind,seq) DO NOTHING RETURNING id")
                             .bind(event).bind(kind).bind(options.dry_run).bind(options.account).bind(revision).bind(&a.content_hash).fetch_optional(&mut *tx).await.map_err(database_error)?;
                         if let Some(id) = id {
                             sqlx::query("UPDATE events SET state='QUEUED',score=$2,priority_signals=$3 WHERE id=$1").bind(event).bind(score as f32).bind(&signals).execute(&mut *tx).await.map_err(database_error)?;
@@ -270,7 +272,13 @@ impl Store {
                     .fetch_one(&mut *tx)
                     .await
                     .map_err(database_error)?;
-            let fresh:bool=sqlx::query_scalar("SELECT NOT EXISTS(SELECT 1 FROM event_articles ea JOIN articles a ON a.id=ea.article_id WHERE ea.event_id=$1 AND (a.published_at IS NULL OR a.published_at<now()-make_interval(hours=>$2) OR a.published_at>now()))").bind(p.event_id).bind(options.max_age_hours as i32).fetch_one(&mut *tx).await.map_err(database_error)?;
+            let fresh: bool = sqlx::query_scalar("SELECT publication_evidence_fresh($1,$2,$3)")
+                .bind(p.event_id)
+                .bind(options.max_age_hours as i32)
+                .bind(options.dry_run)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(database_error)?;
             if paused {
                 defer(&mut tx, job, 5, None).await?;
                 tx.commit().await.map_err(database_error)?;
@@ -424,6 +432,9 @@ impl Store {
                 .map_err(database_error)?;
         } else if status == "failed" {
             sqlx::query("UPDATE events SET state='FAILED',reason='publication_failed' WHERE id=$1 AND state='QUEUED'").bind(p.event_id).execute(&mut *tx).await.map_err(database_error)?;
+        }
+        if matches!(status, "published" | "published_unresolved" | "dry_run") {
+            sqlx::query("UPDATE publication_watches SET superseded_by=$2 WHERE publication_id=(SELECT r.publication_id FROM events e JOIN publication_reviews r ON r.id=e.review_id WHERE e.id=$1) AND superseded_by IS NULL").bind(p.event_id).bind(p.id).execute(&mut *tx).await.map_err(database_error)?;
         }
         audit(
             &mut tx,

@@ -372,3 +372,59 @@ async fn hackernews_uses_item_endpoint_and_filters_dead_items()
     assert_eq!(batch.articles.len(), 1);
     Ok(())
 }
+
+#[tokio::test]
+async fn revisits_old_article_and_never_infers_retraction_from_404()
+-> Result<(), Box<dyn std::error::Error>> {
+    let server = MockServer::start().await;
+    Mock::given(path("/robots.txt"))
+        .respond_with(ResponseTemplate::new(200).set_body_string("User-agent: *\nAllow: /\n"))
+        .mount(&server)
+        .await;
+    Mock::given(path("/old")).respond_with(ResponseTemplate::new(200).set_body_string("<title>Rust</title><meta property='article:published_time' content='2020-01-01T00:00:00Z'><article>Correção: saldo -10.</article>")).mount(&server).await;
+    Mock::given(path("/gone"))
+        .respond_with(ResponseTemplate::new(404))
+        .mount(&server)
+        .await;
+    Mock::given(path("/moved")).respond_with(ResponseTemplate::new(200).set_body_string("<title>Rust</title><link rel='canonical' href='/elsewhere'><article>Correction: saldo -10.</article>")).mount(&server).await;
+    let collector = Collector::new(http::HttpClient::local(&server.uri(), 2097152)?, 20, 168)?;
+    let fresh = collector
+        .revisit(
+            SourceKind::Rss,
+            &server.uri(),
+            &format!("{}/old", server.uri()),
+            Utc::now(),
+        )
+        .await?
+        .ok_or("reconsulta ausente")?;
+    assert_eq!(fresh.notice.as_deref(), Some("Correção: saldo -10."));
+    assert_eq!(
+        fresh.article.published_at.map(|d| d.to_rfc3339()),
+        Some("2020-01-01T00:00:00+00:00".into())
+    );
+    for route in ["gone", "moved"] {
+        assert!(
+            collector
+                .revisit(
+                    SourceKind::Rss,
+                    &server.uri(),
+                    &format!("{}/{route}", server.uri()),
+                    Utc::now()
+                )
+                .await?
+                .is_none()
+        );
+    }
+    assert!(
+        collector
+            .revisit(
+                SourceKind::Hackernews,
+                &server.uri(),
+                &server.uri(),
+                Utc::now()
+            )
+            .await?
+            .is_none()
+    );
+    Ok(())
+}

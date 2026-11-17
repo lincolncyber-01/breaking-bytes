@@ -55,6 +55,7 @@ services:
       STORIES__INSTAGRAM__DRY_RUN: ${STORIES__INSTAGRAM__DRY_RUN:-true}
       LLM_API_KEY: ${LLM_API_KEY:-}
       STORIES__LLM__ENABLED: ${STORIES__LLM__ENABLED:-false}
+      STORIES__CORRECTIONS__ENABLED: ${STORIES__CORRECTIONS__ENABLED:-false}
       STORIES__COLLECTION__ENABLED: ${STORIES__COLLECTION__ENABLED:-false}
     volumes:
       - story-artifacts:/app/artifacts

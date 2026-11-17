@@ -29,6 +29,7 @@ pub mod evaluation;
 pub mod imaging;
 pub mod pipeline;
 pub mod publication;
+mod revisions;
 pub mod token;
 
 #[derive(Clone)]
@@ -40,6 +41,7 @@ pub struct AppState {
     pub editorial_enabled: bool,
     pub imaging_enabled: bool,
     pub publishing_enabled: bool,
+    pub corrections_enabled: bool,
     pub publishing_ready: Arc<AtomicBool>,
     pub token_state: Arc<token::TokenState>,
 }
@@ -137,6 +139,7 @@ async fn status(State(state): State<Arc<AppState>>) -> Response {
             "collection_enabled":state.collection_enabled,"clustering_mode":"hash_entities",
             "editorial_enabled":state.editorial_enabled,"imaging_enabled":state.imaging_enabled,
             "publishing_enabled": state.publishing_enabled,
+            "corrections_enabled": state.corrections_enabled,
             "publishing_ready":state.publishing_ready.load(Ordering::Relaxed),
             "token_health":state.token_state.view().await,
             "pipeline_available": state.publishing_enabled,

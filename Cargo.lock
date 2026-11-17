@@ -4113,6 +4113,7 @@ dependencies = [
 name = "stories-editorial"
 version = "0.1.0"
 dependencies = [
+ "blake3",
  "chrono",
  "jsonschema",
  "proptest",
@@ -4201,6 +4202,7 @@ dependencies = [
 name = "stories-store"
 version = "0.1.0"
 dependencies = [
+ "blake3",
  "chrono",
  "serde_json",
  "sqlx",

@@ -15,7 +15,7 @@ use stories_store::{EditorialOutcome, EditorialStep, Job, JobFailure, Store, Sto
 use stories_verify::{Evidence, Level};
 use tokio::sync::watch;
 
-trait EvidenceClient: Send + Sync {
+pub(crate) trait EvidenceClient: Send + Sync {
     fn hydrate(&self, evidence: Vec<Evidence>) -> impl Future<Output = Vec<Evidence>> + Send;
 }
 
@@ -152,7 +152,7 @@ pub(crate) async fn owned_work<F: Future<Output = Result<()>> + Send>(
     }
 }
 
-async fn process<C: CompletionClient, E: EvidenceClient>(
+pub(crate) async fn process<C: CompletionClient, E: EvidenceClient>(
     settings: &Settings,
     store: &Store,
     job: &Job,
@@ -183,14 +183,39 @@ async fn process<C: CompletionClient, E: EvidenceClient>(
                 .await?;
             return Ok(());
         }
+        if let Some(review) = &context.review
+            && (review.context.dry_run != settings.instagram.dry_run
+                || !store
+                    .revision_fresh(
+                        event,
+                        settings.pipeline.max_age_hours,
+                        settings.instagram.dry_run,
+                    )
+                    .await?)
+        {
+            store
+                .editorial_commit(
+                    job,
+                    &context,
+                    EditorialStep::Rejected {
+                        code: "source_revision_obsolete".into(),
+                    },
+                )
+                .await?;
+            return Ok(());
+        }
         let step = match context.state {
             EventState::Clustered => {
-                let evidence = evidence_client.hydrate(context.evidence.clone()).await;
                 let age = settings.pipeline.max_age_hours;
-                let assessment = tokio::task::spawn_blocking(move || {
-                    stories_verify::assess(&evidence, Utc::now(), age)
-                })
-                .await?;
+                let assessment = if let Some(review) = &context.review {
+                    review.context.assessment(Utc::now(), age)
+                } else {
+                    let evidence = evidence_client.hydrate(context.evidence.clone()).await;
+                    tokio::task::spawn_blocking(move || {
+                        stories_verify::assess(&evidence, Utc::now(), age)
+                    })
+                    .await?
+                };
                 if assessment.level == Level::Observation {
                     EditorialStep::Observe {
                         reason: assessment.reason,
@@ -205,13 +230,16 @@ async fn process<C: CompletionClient, E: EvidenceClient>(
                 let assessment = context.assessment.clone().ok_or(StoreError::InvalidJob)?;
                 let saved = assessment.sources.clone();
                 let age = settings.pipeline.max_age_hours;
-                if tokio::task::spawn_blocking(move || {
-                    stories_verify::assess(&saved, Utc::now(), age)
-                })
-                .await?
-                .level
-                    == Level::Observation
-                {
+                let fresh_level = if let Some(review) = &context.review {
+                    review.context.assessment(Utc::now(), age).level
+                } else {
+                    tokio::task::spawn_blocking(move || {
+                        stories_verify::assess(&saved, Utc::now(), age)
+                    })
+                    .await?
+                    .level
+                };
+                if fresh_level == Level::Observation {
                     store
                         .editorial_commit(
                             job,
@@ -230,7 +258,7 @@ async fn process<C: CompletionClient, E: EvidenceClient>(
                             .get("shorten")
                             .and_then(Value::as_bool)
                             .unwrap_or(false);
-                        let data = json!({"evidence":assessment,"kind":context.kind,"rewrite_number":context.rewrites,"retry_reason":context.reason,"style":{"max_title_words":if shorter{6}else{8},"summary_lines":if shorter{[2,2]}else{[2,4]},"max_line_characters":if shorter{45}else{100},"language":"pt-BR"}});
+                        let data = json!({"evidence":assessment,"change_context":context.review.as_ref().map(|r|r.context.input(&assessment)),"kind":context.kind,"rewrite_number":context.rewrites,"retry_reason":context.reason,"style":{"max_title_words":if shorter{6}else{8},"summary_lines":if shorter{[2,2]}else{[2,4]},"max_line_characters":if shorter{45}else{100},"language":"pt-BR"}});
                         match client.complete(Task::Draft, data).await {
                             Ok(value) => {
                                 let kind = context.kind;
@@ -269,16 +297,43 @@ async fn process<C: CompletionClient, E: EvidenceClient>(
                         if let Err(error) = validation {
                             rewrite(settings, error.code())
                         } else {
-                            let data = json!({"evidence":assessment,"segments":draft.segments(),"kind":context.kind});
-                            match client.complete(Task::Check, data).await {
+                            let data = json!({"evidence":assessment,"segments":draft.segments(),"kind":context.kind,"change_context":context.review.as_ref().map(|r|r.context.input(&assessment))});
+                            let task = if context.review.is_some() {
+                                Task::CheckRevision
+                            } else {
+                                Task::Check
+                            };
+                            match client.complete(task, data).await {
                                 Ok(value) => {
                                     let validator = engine.clone();
+                                    let review = context
+                                        .review
+                                        .as_ref()
+                                        .map(|r| (r.context.clone(), r.decision.clone()));
                                     match tokio::task::spawn_blocking(move || {
-                                        validator.parse_report(value, &draft, &assessment)
+                                        if let Some((revision, decision)) = review {
+                                            let decision = decision.ok_or(
+                                                stories_editorial::EditorialError::Evidence,
+                                            )?;
+                                            let (report, review) = validator
+                                                .parse_revision_report(
+                                                    value,
+                                                    &draft,
+                                                    &assessment,
+                                                    &revision,
+                                                    decision.decision,
+                                                    (Utc::now(), age),
+                                                )?;
+                                            Ok(EditorialStep::CheckedRevision { report, review })
+                                        } else {
+                                            validator
+                                                .parse_report(value, &draft, &assessment)
+                                                .map(EditorialStep::Checked)
+                                        }
                                     })
                                     .await?
                                     {
-                                        Ok(report) => EditorialStep::Checked(report),
+                                        Ok(step) => step,
                                         Err(error) => rewrite(settings, error.code()),
                                     }
                                 }
