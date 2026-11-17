@@ -162,6 +162,7 @@ async fn poll_source(
             continue;
         }
         let state = store.source_state(id).await?;
+        if state.blocked {if stopped_after(&mut stop,Duration::from_secs(30)).await{return Ok(());}continue;}
         let wait = (state.next_poll_at - Utc::now())
             .to_std()
             .unwrap_or_default();

@@ -137,7 +137,7 @@ impl R2 {
             .map_err(|_| PublishError::Signing)?;
         let response = self.send(Method::PUT, request, Some(bytes)).await?;
         if !response.status().is_success() {
-            return Err(PublishError::Http(response.status().as_u16()));
+            return Err(crate::response_error(&response));
         }
         let url = self.get_url(key).await?;
         tokio::time::timeout(TIMEOUT, async {
@@ -149,7 +149,7 @@ impl R2 {
                 .await
                 .map_err(|_| PublishError::Transport)?;
             if !response.status().is_success() {
-                return Err(PublishError::Http(response.status().as_u16()));
+                return Err(crate::response_error(&response));
             }
             if digest(body(response, MAX_JPEG).await?).await?.1 != hash {
                 return Err(PublishError::Artifact);
@@ -173,7 +173,7 @@ impl R2 {
         if response.status().is_success() || response.status().as_u16() == 404 {
             Ok(())
         } else {
-            Err(PublishError::Http(response.status().as_u16()))
+            Err(crate::response_error(&response))
         }
     }
 }

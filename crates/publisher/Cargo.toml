@@ -7,6 +7,7 @@ publish.workspace = true
 repository.workspace = true
 
 [dependencies]
+httpdate.workspace = true
 chrono.workspace = true
 stories-core.workspace = true
 subtle.workspace = true

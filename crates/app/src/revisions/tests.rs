@@ -142,7 +142,7 @@ async fn correction_dry_run_survives_crash_and_fences_changed_sources() -> Resul
     let original = crate::publication::tests::dry_fixture(&settings, &store, first).await?;
     // Simula passagem de vinte horas na fixture sem trocar o conteúdo do Story.
     sqlx::query("UPDATE articles SET published_at=now()-interval '20 hours' WHERE id IN(SELECT article_id FROM event_articles WHERE event_id=$1)").bind(first).execute(store.pool()).await?;
-    sqlx::query("UPDATE publications SET published_at=now()-interval '20 hours',editorial_snapshot=jsonb_set(editorial_snapshot,'{assessment,sources,0,published_at}',to_jsonb(now()-interval '20 hours')) WHERE id=$1").bind(original).execute(store.pool()).await?;
+    sqlx::query("UPDATE publications SET simulated_at=now()-interval '20 hours',editorial_snapshot=jsonb_set(editorial_snapshot,'{assessment,sources,0,published_at}',to_jsonb(now()-interval '20 hours')) WHERE id=$1").bind(original).execute(store.pool()).await?;
     assert_eq!(store.enroll_watches(policy(&settings), true).await?, 1);
     assert_eq!(store.enroll_watches(policy(&settings), true).await?, 0);
     let mut real_mode = settings.clone();
@@ -305,7 +305,7 @@ async fn correction_dry_run_survives_crash_and_fences_changed_sources() -> Resul
     assert_eq!(reviews, 0);
 
     // Avança o relógio da fixture para não depender do intervalo entre Stories normais.
-    sqlx::query("UPDATE publications SET published_at=now()-interval '2 minutes',request_started_at=NULL WHERE status='dry_run'").execute(store.pool()).await?;
+    sqlx::query("UPDATE publications SET simulated_at=now()-interval '2 minutes',request_started_at=NULL WHERE status='dry_run'").execute(store.pool()).await?;
     // Outro Story tem resposta do LLM em voo quando a fonte fica indisponível.
     let second = crate::imaging::tests::seed(&store, source, 102, false).await?;
     crate::imaging::tests::render_fixture(&settings, &store, second).await?;

@@ -57,12 +57,14 @@ impl Default for Corrections {
 pub struct Publishing {
     pub enabled: bool,
     pub reserved_slots: u32,
+    pub priority_weights:[f64;5],
 }
 impl Default for Publishing {
     fn default() -> Self {
         Self {
             enabled: true,
             reserved_slots: 5,
+            priority_weights:[0.30,0.20,0.20,0.15,0.15],
         }
     }
 }
@@ -316,6 +318,8 @@ impl Settings {
     }
 
     pub fn validate(&self) -> Result<(), ConfigError> {
+        let weights=self.publishing.priority_weights;
+        if weights.iter().any(|w|!w.is_finite()||!(0.0..=1.0).contains(w))||(weights.iter().sum::<f64>()-1.0).abs()>0.000001{return Err(ConfigError::Invalid("pesos de prioridade"));}
         let c = &self.corrections;
         if !(60..=3600).contains(&c.interval_s)
             || !(1..=72).contains(&c.window_hours)

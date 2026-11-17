@@ -4107,6 +4107,8 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+ "unicode-normalization",
+ "uuid",
 ]
 
 [[package]]
@@ -4177,6 +4179,7 @@ dependencies = [
  "aws-sdk-s3",
  "blake3",
  "chrono",
+ "httpdate",
  "reqwest",
  "rustls",
  "serde",

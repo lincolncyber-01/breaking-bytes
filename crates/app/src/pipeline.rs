@@ -1,7 +1,6 @@
 //! Transporte compartilhado e supervisão dos estágios habilitados.
 
 use anyhow::{Context, Result};
-use std::sync::{Arc, atomic::AtomicBool};
 use std::time::Duration;
 use stories_collectors::http::HttpClient;
 use stories_config::{Secrets, Settings};
@@ -13,8 +12,7 @@ pub async fn run(
     settings: Settings,
     store: Store,
     secrets: Secrets,
-    publishing_ready: Arc<AtomicBool>,
-    token_state: Arc<crate::token::TokenState>,
+    runtime:crate::publication::PublisherRuntime,
     mut stop: watch::Receiver<bool>,
 ) -> Result<()> {
     if !settings.collection.enabled
@@ -83,8 +81,7 @@ pub async fn run(
             store.clone(),
             http.clone(),
             secrets,
-            publishing_ready,
-            token_state,
+            runtime,
             stop.clone(),
         ));
     }

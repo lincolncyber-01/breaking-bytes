@@ -44,3 +44,11 @@ testcontainers.workspace = true
 
 [lints]
 workspace = true
+
+[features]
+test-support = ["stories-publisher/test-support"]
+
+[[bin]]
+name = "stories-publication-chaos"
+path = "src/bin/publication_chaos.rs"
+required-features = ["test-support"]

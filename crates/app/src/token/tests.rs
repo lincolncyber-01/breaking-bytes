@@ -127,6 +127,7 @@ async fn token_monitor_refresh_fencing_restart_rotation_and_alerts_use_postgres(
         imaging_enabled: false,
         publishing_enabled: true,
         corrections_enabled: false,
+        publisher_admin:std::sync::Arc::new(crate::publication::AdminPublisher::default()),
         publishing_ready: Arc::new(AtomicBool::new(true)),
         token_state: monitor.state.clone(),
     });

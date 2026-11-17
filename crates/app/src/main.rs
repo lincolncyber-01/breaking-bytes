@@ -102,6 +102,7 @@ fn main() -> Result<()> {
             .context("não foi possível abrir a Admin API")?;
         let publishing_ready=std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         let token_state=std::sync::Arc::new(stories_app::token::TokenState::new(i64::from(settings.instagram.token.check_interval_s)*2+20,i64::from(settings.instagram.token.warning_days)));
+        let publisher_admin=std::sync::Arc::new(stories_app::publication::AdminPublisher::default());
         let app = router(AppState {
             store: store.clone(),
             admin_token: secrets.admin_token.clone(),
@@ -111,11 +112,12 @@ fn main() -> Result<()> {
             imaging_enabled: settings.imaging.enabled,
             publishing_enabled:settings.publishing.enabled,
             corrections_enabled:settings.corrections.enabled,
+            publisher_admin:publisher_admin.clone(),
             publishing_ready:publishing_ready.clone(),
             token_state:token_state.clone(),
         });
         let (stop_sender,mut server_stop)=tokio::sync::watch::channel(false);
-        let mut pipeline=tokio::spawn(stories_app::pipeline::run(settings.clone(),store.clone(),secrets,publishing_ready,token_state,server_stop.clone()));
+        let mut pipeline=tokio::spawn(stories_app::pipeline::run(settings.clone(),store.clone(),secrets,stories_app::publication::PublisherRuntime{healthy:publishing_ready,token_state,admin:publisher_admin},server_stop.clone()));
         let signal_sender=stop_sender.clone();
         let signal=tokio::spawn(async move{shutdown().await;let _=signal_sender.send(true);});
         tracing::info!(bind = %settings.admin.bind, dry_run = settings.instagram.dry_run,

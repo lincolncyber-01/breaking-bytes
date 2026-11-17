@@ -1,0 +1,29 @@
+name: Relatório de formatação
+on:
+  push:
+    branches: [codex/phase-5-publication]
+permissions:
+  contents: read
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install 1.100.0 --profile minimal --component rustfmt
+      - run: cargo fmt --all
+      - name: Emitir alterações revisáveis sem gravar no repositório remoto
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json,subprocess,os
+          from pathlib import Path
+          paths=subprocess.check_output(["git","diff","--name-only"],text=True).splitlines()
+          elements=[{"path":p,"mode":"100644","type":"blob","content":Path(p).read_text()} for p in paths]
+          subprocess.run(["git","add","--update"],check=True)
+          payload=json.dumps({"base":os.environ["GITHUB_SHA"],"tree":subprocess.check_output(["git","write-tree"],text=True).strip(),"elements":elements},ensure_ascii=False)
+          print("FORMAT_SIZE "+str(len(payload)))
+          for index in range(0,len(payload),10000):
+              print("FORMAT_CHUNK "+str(index//10000)+" "+json.dumps(payload[index:index+10000],ensure_ascii=False))
+          PY

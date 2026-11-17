@@ -80,7 +80,7 @@ async fn audit(
     Ok(())
 }
 async fn identity(tx: &mut Transaction<'_, Postgres>, e: &Evidence) -> Result<bool, StoreError> {
-    sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM sources WHERE id=$1 AND enabled AND name=$2 AND url=$3 AND kind=$4 AND layer::text=$5 AND weight=$6 AND origin_group IS NOT DISTINCT FROM $7)")
+    sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM sources WHERE id=$1 AND enabled AND NOT source_is_blocked(id) AND name=$2 AND url=$3 AND kind=$4 AND layer::text=$5 AND weight=$6 AND origin_group IS NOT DISTINCT FROM $7)")
         .bind(e.source_id).bind(&e.source_name).bind(&e.source_url).bind(&e.kind).bind(&e.layer).bind(e.weight).bind(&e.origin_group).fetch_one(&mut **tx).await.map_err(database_error)
 }
 async fn source_error(
@@ -147,7 +147,7 @@ impl Store {
             editorial_snapshot: Value,
             score: Option<f32>,
         }
-        let candidates:Vec<Candidate>=sqlx::query_as("SELECT p.id,p.event_id,p.published_at,p.editorial_snapshot,e.score FROM publications p JOIN events e ON e.id=p.event_id WHERE p.dry_run=$1 AND p.status IN('published','published_unresolved','dry_run') AND p.published_at>now()-make_interval(hours=>$2) AND jsonb_typeof(p.editorial_snapshot->'draft')='object' AND jsonb_typeof(p.editorial_snapshot->'assessment')='object' AND NOT EXISTS(SELECT 1 FROM publication_watches WHERE publication_id=p.id) ORDER BY p.id LIMIT 32")
+        let candidates:Vec<Candidate>=sqlx::query_as("SELECT p.id,p.event_id,COALESCE(p.published_at,p.simulated_at) AS published_at,p.editorial_snapshot,e.score FROM publications p JOIN events e ON e.id=p.event_id WHERE p.dry_run=$1 AND p.status IN('published','published_unresolved','dry_run') AND COALESCE(p.published_at,p.simulated_at)>now()-make_interval(hours=>$2) AND jsonb_typeof(p.editorial_snapshot->'draft')='object' AND jsonb_typeof(p.editorial_snapshot->'assessment')='object' AND NOT EXISTS(SELECT 1 FROM publication_watches WHERE publication_id=p.id) ORDER BY p.id LIMIT 32")
             .bind(dry_run).bind(policy.high_impact_hours as i32).fetch_all(&self.pool).await.map_err(database_error)?;
         let mut inserted = 0;
         for c in candidates {

@@ -15,6 +15,8 @@ mod collection;
 mod editorial;
 mod imaging;
 mod publication;
+mod operations;
+pub use operations::{RulePage,RuleRecord,ResolutionResult,ResolutionWitness};
 mod revisions;
 mod token;
 pub use collection::{CollectionStats, SourceState};

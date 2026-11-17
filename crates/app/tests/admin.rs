@@ -49,6 +49,7 @@ async fn health_auth_pause_and_fail_closed_readiness() -> Result<(), Box<dyn std
         token_state: std::sync::Arc::new(stories_app::token::TokenState::default()),
         publishing_enabled: true,
         corrections_enabled: false,
+        publisher_admin:std::sync::Arc::new(stories_app::publication::AdminPublisher::default()),
         publishing_ready: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
         editorial_enabled: false,
         imaging_enabled: false,

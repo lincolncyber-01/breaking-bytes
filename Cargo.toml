@@ -10,6 +10,7 @@ publish = false
 repository = "https://github.com/lincolncyber-01/breaking-bytes"
 
 [workspace.dependencies]
+httpdate = "=1.0.3"
 aws-sdk-s3 = { version = "=1.159.0", default-features = false, features = ["rt-tokio", "behavior-version-latest"] }
 anyhow = "=1.0.104"
 image = { version = "=0.25.10", default-features = false, features = ["jpeg", "png", "webp"] }

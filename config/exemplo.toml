@@ -60,6 +60,8 @@ high_impact_score = 0.80
 max_sources = 4
 
 [publishing]
+# Ordem: impacto, novidade, confiabilidade, alcance, urgência.
+priority_weights = [0.30, 0.20, 0.20, 0.15, 0.15]
 enabled = true
 reserved_slots = 5
 

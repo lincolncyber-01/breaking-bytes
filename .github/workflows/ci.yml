@@ -23,8 +23,8 @@ jobs:
           echo 'd039b43c3e0958441b6ad0a39c8884d018b3d2e8fb9928f209074b1100b5e17a  nextest.tar.gz' | sha256sum --check
           tar -xzf nextest.tar.gz -C "$HOME/.cargo/bin" cargo-nextest
       - run: cargo fmt --check
-      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
-      - run: cargo nextest run --workspace --locked
+      - run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+      - run: cargo nextest run --workspace --all-features --locked
       - name: Compilar release
         run: cargo build --release --locked
       - name: Construir imagem

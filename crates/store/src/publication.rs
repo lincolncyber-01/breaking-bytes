@@ -22,6 +22,8 @@ pub struct Publication {
     pub request_started_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub cleaned_at: Option<DateTime<Utc>>,
+    pub container_created_at: Option<DateTime<Utc>>,
+    pub simulated_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, FromRow)]
@@ -52,6 +54,7 @@ pub enum PublicationStep<'a> {
     Published(&'a str),
     ConfirmedWithoutId,
     Uncertain,
+    UncertainDelay(u32),
     Failed,
     Simulated,
 }
@@ -121,7 +124,7 @@ async fn decision(
         pending: i64,
         elapsed: Option<f64>,
     }
-    let c:Counts=sqlx::query_as("SELECT count(*) FILTER(WHERE status IN('published','published_unresolved','dry_run') AND published_at>now()-interval '24 hours') AS published,count(*) FILTER(WHERE id<>$3 AND status IN('creating','container_ready','publishing','uncertain')) AS pending,extract(epoch FROM now()-max(COALESCE(request_started_at,published_at)))::double precision AS elapsed FROM publications WHERE account_key=$1 AND dry_run=$2")
+    let c:Counts=sqlx::query_as("SELECT count(*) FILTER(WHERE status IN('published','published_unresolved','dry_run') AND COALESCE(published_at,simulated_at)>now()-interval '24 hours') AS published,count(*) FILTER(WHERE id<>$3 AND status IN('creating','container_ready','publishing','uncertain')) AS pending,extract(epoch FROM now()-max(COALESCE(request_started_at,published_at,simulated_at)))::double precision AS elapsed FROM publications WHERE account_key=$1 AND dry_run=$2")
         .bind(options.account).bind(options.dry_run).bind(exclude).fetch_one(&mut **tx).await.map_err(database_error)?;
     options
         .policy
@@ -148,7 +151,7 @@ impl Store {
         sqlx::query_as("SELECT artifact_path,content_hash,byte_length,revision,dry_run FROM rendered_stories WHERE event_id=$1 AND revision=$2 ORDER BY created_at DESC LIMIT 1").bind(event).bind(revision).fetch_one(&self.pool).await.map_err(database_error)
     }
     pub async fn publication(&self, id: i64) -> Result<Publication, StoreError> {
-        sqlx::query_as("SELECT id,event_id,kind,status,container_id,media_id,image_key,dry_run,account_key,revision,artifact_hash,request_started_at,created_at,cleaned_at FROM publications WHERE id=$1").bind(id).fetch_one(&self.pool).await.map_err(database_error)
+        sqlx::query_as("SELECT id,event_id,kind,status,container_id,media_id,image_key,dry_run,account_key,revision,artifact_hash,request_started_at,created_at,cleaned_at,container_created_at,simulated_at FROM publications WHERE id=$1").bind(id).fetch_one(&self.pool).await.map_err(database_error)
     }
     /// Reserva e outbox atômicos. Um JPEG simulado não pode ser promovido implicitamente.
     pub async fn schedule_publication(
@@ -196,7 +199,7 @@ impl Store {
             if a.dry_run != options.dry_run {
                 return Err(StoreError::Conflict);
             }
-            let fresh: bool = sqlx::query_scalar("SELECT publication_evidence_fresh($1,$2,$3)")
+            let fresh: bool = sqlx::query_scalar("SELECT publication_evidence_fresh($1,$2,$3) AND NOT event_is_blocked($1)")
                 .bind(event)
                 .bind(options.max_age_hours as i32)
                 .bind(options.dry_run)
@@ -257,7 +260,7 @@ impl Store {
         let mut tx = self.pool.begin().await.map_err(database_error)?;
         owned(&mut tx, job).await?;
         account_lock(&mut tx, options.account).await?;
-        let p:Publication=sqlx::query_as("SELECT id,event_id,kind,status,container_id,media_id,image_key,dry_run,account_key,revision,artifact_hash,request_started_at,created_at,cleaned_at FROM publications WHERE id=$1 FOR UPDATE").bind(id).fetch_one(&mut *tx).await.map_err(database_error)?;
+        let p:Publication=sqlx::query_as("SELECT id,event_id,kind,status,container_id,media_id,image_key,dry_run,account_key,revision,artifact_hash,request_started_at,created_at,cleaned_at,container_created_at,simulated_at FROM publications WHERE id=$1 FOR UPDATE").bind(id).fetch_one(&mut *tx).await.map_err(database_error)?;
         if p.account_key.as_deref() != Some(options.account) || p.dry_run != options.dry_run {
             return Err(StoreError::Conflict);
         }
@@ -284,7 +287,7 @@ impl Store {
                     .fetch_one(&mut *tx)
                     .await
                     .map_err(database_error)?;
-            let fresh: bool = sqlx::query_scalar("SELECT publication_evidence_fresh($1,$2,$3)")
+            let fresh: bool = sqlx::query_scalar("SELECT publication_evidence_fresh($1,$2,$3) AND NOT event_is_blocked($1)")
                 .bind(p.event_id)
                 .bind(options.max_age_hours as i32)
                 .bind(options.dry_run)
@@ -354,7 +357,7 @@ impl Store {
                     return Err(StoreError::InvalidOptions);
                 }
                 sqlx::query(
-                    "UPDATE publications SET container_id=$2 WHERE id=$1 AND container_id IS NULL",
+                    "UPDATE publications SET container_id=$2,container_created_at=clock_timestamp() WHERE id=$1 AND container_id IS NULL",
                 )
                 .bind(id)
                 .bind(container)
@@ -424,8 +427,9 @@ impl Store {
                 ("published_unresolved", "published_without_media_id")
             }
             PublicationStep::Uncertain if !before && !p.dry_run => ("uncertain", "uncertain"),
+            PublicationStep::UncertainDelay(seconds) if !before&&!p.dry_run&&(1..=86400).contains(&seconds)=>("uncertain","uncertain"),
             PublicationStep::Simulated if before && p.dry_run => {
-                sqlx::query("UPDATE publications SET published_at=now() WHERE id=$1")
+                sqlx::query("UPDATE publications SET simulated_at=now() WHERE id=$1")
                     .bind(id)
                     .execute(&mut *tx)
                     .await
@@ -457,8 +461,9 @@ impl Store {
         .await?;
         if terminal {
             finish(&mut tx, job).await?;
-        } else if matches!(step, PublicationStep::Uncertain) {
-            defer(&mut tx, job, 60, Some("reconcile")).await?;
+        } else if matches!(step, PublicationStep::Uncertain|PublicationStep::UncertainDelay(_)) {
+            let seconds=match step{PublicationStep::UncertainDelay(s)=>s as i32,_=>60};
+            defer(&mut tx, job, seconds, Some("reconcile")).await?;
         }
         tx.commit().await.map_err(database_error)?;
         Ok(true)
@@ -486,7 +491,7 @@ impl Store {
         account: &str,
         ttl_minutes: i32,
     ) -> Result<Vec<Publication>, StoreError> {
-        sqlx::query_as("SELECT id,event_id,kind,status,container_id,media_id,image_key,dry_run,account_key,revision,artifact_hash,request_started_at,created_at,cleaned_at FROM publications WHERE account_key=$1 AND NOT dry_run AND cleaned_at IS NULL AND image_key IS NOT NULL AND status IN('published','published_unresolved','failed') AND GREATEST(created_at,COALESCE(published_at,created_at))<now()-make_interval(mins=>$2) ORDER BY id LIMIT 20").bind(account).bind(ttl_minutes).fetch_all(&self.pool).await.map_err(database_error)
+        sqlx::query_as("SELECT id,event_id,kind,status,container_id,media_id,image_key,dry_run,account_key,revision,artifact_hash,request_started_at,created_at,cleaned_at,container_created_at,simulated_at FROM publications WHERE account_key=$1 AND NOT dry_run AND cleaned_at IS NULL AND image_key IS NOT NULL AND status IN('published','published_unresolved','failed') AND GREATEST(created_at,COALESCE(published_at,created_at))<now()-make_interval(mins=>$2) ORDER BY id LIMIT 20").bind(account).bind(ttl_minutes).fetch_all(&self.pool).await.map_err(database_error)
     }
     pub async fn publication_cleaned(&self, id: i64) -> Result<(), StoreError> {
         sqlx::query("UPDATE publications SET cleaned_at=now() WHERE id=$1 AND status IN('published','published_unresolved','failed')").bind(id).execute(&self.pool).await.map_err(database_error)?;

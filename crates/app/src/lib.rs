@@ -8,7 +8,7 @@ use axum::{
     http::{StatusCode, header::AUTHORIZATION},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::{get, put},
+    routing::{get, put, post},
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -25,6 +25,7 @@ use tower::{ServiceBuilder, limit::ConcurrencyLimitLayer};
 
 pub mod collection;
 mod editorial;
+mod admin;
 pub mod evaluation;
 pub mod imaging;
 pub mod pipeline;
@@ -42,6 +43,7 @@ pub struct AppState {
     pub imaging_enabled: bool,
     pub publishing_enabled: bool,
     pub corrections_enabled: bool,
+    pub publisher_admin: Arc<publication::AdminPublisher>,
     pub publishing_ready: Arc<AtomicBool>,
     pub token_state: Arc<token::TokenState>,
 }
@@ -51,6 +53,8 @@ pub fn router(state: AppState) -> Router {
     let admin = Router::new()
         .route("/status", get(status))
         .route("/pause", put(pause))
+        .route("/blocklist", get(admin::rules).put(admin::change_rule))
+        .route("/publications/{id}/resolve", post(admin::resolve))
         .route_layer(middleware::from_fn_with_state(state.clone(), authorize));
     Router::new()
         .route(

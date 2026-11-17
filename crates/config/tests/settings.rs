@@ -205,3 +205,10 @@ fn correction_windows_and_bounds_are_validated() -> Result<(), Box<dyn std::erro
     }
     Ok(())
 }
+
+#[test]
+fn priority_weights_must_form_a_finite_distribution()->Result<(),Box<dyn std::error::Error>> {
+    let mut config=settings()?;
+    for weights in [[0.0;5],[1.0;5],[f64::NAN,0.2,0.2,0.2,0.2],[-0.1,0.3,0.3,0.3,0.2]] {config.publishing.priority_weights=weights;assert!(config.validate().is_err());}
+    config.publishing.priority_weights=[1.0,0.0,0.0,0.0,0.0];config.validate()?;Ok(())
+}

@@ -139,6 +139,7 @@ impl Processor {
             store.complete(job).await?;
             return Ok(());
         }
+        if store.event_blocked(event).await? {store.editorial_commit(job,&context,EditorialStep::Rejected{code:"policy_blocked".into()}).await?;return Ok(());}
         let draft = context.draft.clone().ok_or(StoreError::InvalidJob)?;
         let assessment = context.assessment.as_ref().ok_or(StoreError::InvalidJob)?;
         let primary = assessment.sources.first().ok_or(StoreError::InvalidJob)?;

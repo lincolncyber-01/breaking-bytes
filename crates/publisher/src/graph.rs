@@ -135,6 +135,7 @@ impl Graph {
                 if status.as_u16() == 403 {
                     return Err(PublishError::Permission);
                 }
+                let retry_after_s=crate::retry_after(&response);
                 let bytes = body(response, MAX_JSON).await?;
                 let value: Option<Value> = serde_json::from_slice(&bytes).ok();
                 let code = value
@@ -144,7 +145,8 @@ impl Graph {
                 return Err(match code {
                     Some(102 | 190) => PublishError::Authentication,
                     Some(10 | 200..=299) => PublishError::Permission,
-                    _ => PublishError::Http(status.as_u16()),
+                    Some(code) if u32::try_from(code).is_ok()=>PublishError::Graph{status:status.as_u16(),code:code as u32,retry_after_s},
+                    _=>match retry_after_s{Some(seconds)=>PublishError::HttpWithRetry{status:status.as_u16(),retry_after_s:seconds},None=>PublishError::Http(status.as_u16())},
                 });
             }
             serde_json::from_slice(&body(response, MAX_JSON).await?)

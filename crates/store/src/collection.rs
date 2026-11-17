@@ -13,6 +13,7 @@ pub struct SourceState {
     pub etag: Option<String>,
     pub last_modified: Option<String>,
     pub failures: i32,
+    pub blocked: bool,
     pub next_poll_at: DateTime<Utc>,
 }
 
@@ -73,7 +74,7 @@ impl Store {
 
     pub async fn source_state(&self, id: i32) -> Result<SourceState, StoreError> {
         sqlx::query_as(
-            "SELECT id,etag,last_modified,failures,next_poll_at FROM sources WHERE id=$1",
+            "SELECT id,etag,last_modified,failures,next_poll_at,source_is_blocked(id) AS blocked FROM sources WHERE id=$1",
         )
         .bind(id)
         .fetch_one(&self.pool)
@@ -96,6 +97,8 @@ impl Store {
         }
         let mut tx = self.pool.begin().await.map_err(database_error)?;
         let mut stats = CollectionStats::default();
+        let blocked:bool=sqlx::query_scalar("SELECT source_is_blocked($1)").bind(source).fetch_one(&mut *tx).await.map_err(database_error)?;
+        if blocked {tx.commit().await.map_err(database_error)?;return Ok(stats);}
         for article in articles {
             let inserted:Option<i64>=sqlx::query_scalar("INSERT INTO articles(source_id,url_canonical,title,title_hash,body_excerpt,image_url,published_at,entities,facts,tokens) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(url_canonical) DO NOTHING RETURNING id")
                 .bind(source).bind(&article.url).bind(&article.title).bind(article.title_hash.as_slice()).bind(&article.excerpt).bind(&article.image_url).bind(article.published_at).bind(&article.entities).bind(&article.facts).bind(&article.tokens)

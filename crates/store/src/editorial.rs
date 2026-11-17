@@ -118,7 +118,7 @@ impl Store {
             title: String,
             body_excerpt: Option<String>,
         }
-        let evidence:Vec<SourceRow>=sqlx::query_as("SELECT a.id article_id,s.id source_id,s.name source_name,s.url source_url,a.url_canonical article_url,s.layer::text layer,s.kind,s.weight,s.origin_group,a.published_at,a.title,a.body_excerpt FROM event_articles ea JOIN articles a ON a.id=ea.article_id JOIN article_sightings sight ON sight.article_id=a.id JOIN sources s ON s.id=sight.source_id WHERE ea.event_id=$1 AND s.enabled ORDER BY s.weight DESC,a.detected_at,a.id,s.id LIMIT 32")
+        let evidence:Vec<SourceRow>=sqlx::query_as("SELECT a.id article_id,s.id source_id,s.name source_name,s.url source_url,a.url_canonical article_url,s.layer::text layer,s.kind,s.weight,s.origin_group,a.published_at,a.title,a.body_excerpt FROM event_articles ea JOIN articles a ON a.id=ea.article_id JOIN article_sightings sight ON sight.article_id=a.id JOIN sources s ON s.id=sight.source_id WHERE ea.event_id=$1 AND s.enabled AND NOT source_is_blocked(s.id) ORDER BY s.weight DESC,a.detected_at,a.id,s.id LIMIT 32")
             .bind(event).fetch_all(&self.pool).await.map_err(database_error)?;
         Ok(EditorialContext {
             event_id: row.id,
@@ -190,6 +190,8 @@ impl Store {
             tx.commit().await.map_err(database_error)?;
             return Ok(EditorialOutcome::Finished);
         }
+        let blocked:bool=sqlx::query_scalar("SELECT event_is_blocked($1)").bind(row.id).fetch_one(&mut *tx).await.map_err(database_error)?;
+        if blocked {terminal(&mut tx,row.id,"REJECTED","policy_blocked").await?;finish(&mut tx,job).await?;tx.commit().await.map_err(database_error)?;return Ok(EditorialOutcome::Finished);}
         if let Some(review) = &context.review {
             let fresh: bool = sqlx::query_scalar("SELECT revision_evidence_fresh($1,$2,$3)")
                 .bind(row.id)
