@@ -32,6 +32,15 @@ pub struct ResolutionResult {
     pub media_id: String,
     pub replayed: bool,
 }
+#[derive(FromRow)]
+struct ResolutionPublication {
+    event_id: i64,
+    status: String,
+    container_id: Option<String>,
+    dry_run: bool,
+    account_key: Option<String>,
+    request_started_at: Option<DateTime<Utc>>,
+}
 async fn paused(tx: &mut Transaction<'_, Postgres>) -> Result<(), StoreError> {
     let value: bool =
         sqlx::query_scalar("SELECT paused FROM pipeline_control WHERE id=true FOR UPDATE")
@@ -165,7 +174,15 @@ impl Store {
                 replayed: true,
             });
         }
-        let (event,status,container,dry,account,started):(i64,String,Option<String>,bool,Option<String>,Option<DateTime<Utc>>)=sqlx::query_as("SELECT event_id,status,container_id,dry_run,account_key,request_started_at FROM publications WHERE id=$1 FOR UPDATE").bind(publication).fetch_one(&mut *tx).await.map_err(database_error)?;
+        let row: ResolutionPublication = sqlx::query_as("SELECT event_id,status,container_id,dry_run,account_key,request_started_at FROM publications WHERE id=$1 FOR UPDATE").bind(publication).fetch_one(&mut *tx).await.map_err(database_error)?;
+        let ResolutionPublication {
+            event_id: event,
+            status,
+            container_id: container,
+            dry_run: dry,
+            account_key: account,
+            request_started_at: started,
+        } = row;
         if dry
             || account.as_deref() != Some(witness.account.as_str())
             || status != request.expected_status

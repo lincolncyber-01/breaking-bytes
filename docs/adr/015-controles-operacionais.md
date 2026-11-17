@@ -49,3 +49,9 @@ O terminal gerenciado ficou indisponível durante este incremento. GitHub Action
 é o ambiente de execução para formatter, compilação e testes. O workflow auxiliar
 tem apenas leitura: emite alterações formatadas para revisão, sem fazer push.
 Resultados efetivos do CI são registrados no PR; não são presumidos neste ADR.
+
+O CI revelou a depreciação do runtime de actions/checkout v4. Foram consultadas
+as releases oficiais em 17/11/2026: checkout v7.0.1 e upload-artifact v7.0.2.
+As referências agora usam os SHAs dos tags oficiais, sem versão flutuante.
+O cargo check de todos os recursos antecede Clippy para conferir também as APIs
+do binário de caos; o portão Clippy continua com avisos como erro.
