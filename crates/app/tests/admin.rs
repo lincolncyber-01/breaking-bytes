@@ -46,6 +46,7 @@ async fn health_auth_pause_and_fail_closed_readiness() -> Result<(), Box<dyn std
         _ => None,
     })?;
     let state = AppState {
+        daily_cap: 40,
         token_state: std::sync::Arc::new(stories_app::token::TokenState::default()),
         publishing_enabled: true,
         corrections_enabled: false,
@@ -59,13 +60,28 @@ async fn health_auth_pause_and_fail_closed_readiness() -> Result<(), Box<dyn std
         collection_enabled: false,
     };
     let app = router(state.clone());
-    for path in ["/health/live", "/health/ready"] {
+    for path in ["/health/live", "/health/ready", "/metrics"] {
         let response = app
             .clone()
             .oneshot(Request::builder().uri(path).body(Body::empty())?)
             .await?;
         assert_eq!(response.status(), StatusCode::OK);
     }
+    let stats = app
+        .clone()
+        .oneshot(Request::builder().uri("/admin/stats").body(Body::empty())?)
+        .await?;
+    assert_eq!(stats.status(), StatusCode::UNAUTHORIZED);
+    let stats = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/admin/stats")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())?,
+        )
+        .await?;
+    assert_eq!(stats.status(), StatusCode::OK);
     for value in [None, Some("Bearer errado"), Some("Basic dGVzdA==")] {
         let mut request = Request::builder().uri("/admin/status");
         if let Some(value) = value {

@@ -253,9 +253,10 @@ impl Publisher {
         }
         Ok(())
     }
-    async fn options(&self) -> Result<PublicationPolicy<'_>> {
+    async fn options(&self, store: &Store) -> Result<PublicationPolicy<'_>> {
         let (remote_usage, remote_limit) = if let Some(remote) = &self.remote {
-            let q = remote.graph.quota().await?;
+            let q = crate::observability::instagram(store, remote.graph.quota()).await?;
+            store.record_quota(&self.account, q.usage, q.total).await?;
             (q.usage, q.total)
         } else {
             (0, 80)
@@ -285,20 +286,26 @@ impl Publisher {
         if let Some(remote) = &self.remote {
             remote.token.check(store, &self.account).await?;
             let access = async {
-                remote.graph.quota().await?;
-                remote.graph.stories().await?;
-                Ok::<_, stories_publisher::PublishError>(())
+                let quota = crate::observability::instagram(store, remote.graph.quota()).await?;
+                crate::observability::instagram(store, remote.graph.stories()).await?;
+                Ok::<_, stories_publisher::PublishError>(quota)
             }
             .await;
-            if let Err(error) = access {
-                if let Some(failure) = error.token_failure() {
-                    remote
-                        .token
-                        .invalidate(store, &self.account, failure)
-                        .await?;
+            let quota = match access {
+                Ok(quota) => quota,
+                Err(error) => {
+                    if let Some(failure) = error.token_failure() {
+                        remote
+                            .token
+                            .invalidate(store, &self.account, failure)
+                            .await?;
+                    }
+                    return Err(error.into());
                 }
-                return Err(error.into());
-            }
+            };
+            store
+                .record_quota(&self.account, quota.usage, quota.total)
+                .await?;
             // Uma sonda reversível verifica assinatura, permissão de escrita, leitura e remoção.
             let bytes = vec![0xff, 0xd8, 0xff, 0xd9];
             let hash = *blake3::hash(&bytes).as_bytes();
@@ -356,7 +363,7 @@ impl Publisher {
                     revision,
                     signals.score_with(self.settings.publishing.priority_weights)?,
                     serde_json::json!({"signals":signals,"weights":self.settings.publishing.priority_weights}),
-                    self.options().await?,
+                    self.options(store).await?,
                 )
                 .await?);
         }
@@ -384,14 +391,16 @@ impl Publisher {
                 .as_deref()
                 .context("container ausente após barreira")?;
             // A lista é consultada, mas nem um único ID novo constitui prova de identidade.
-            let stories = remote.graph.stories().await?;
+            let stories = crate::observability::instagram(store, remote.graph.stories()).await?;
             tracing::info!(
                 publication_id = id,
                 active_stories = stories.len(),
                 "reconciliação consultou Stories ativos"
             );
             let options = self.policy(0, 80);
-            if remote.graph.status(container).await? == ContainerStatus::Published {
+            if crate::observability::instagram(store, remote.graph.status(container)).await?
+                == ContainerStatus::Published
+            {
                 store
                     .publication_step(job, id, PublicationStep::ConfirmedWithoutId, options)
                     .await?;
@@ -419,7 +428,12 @@ impl Publisher {
         }
         if p.dry_run {
             store
-                .publication_step(job, id, PublicationStep::Simulated, self.options().await?)
+                .publication_step(
+                    job,
+                    id,
+                    PublicationStep::Simulated,
+                    self.options(store).await?,
+                )
                 .await?;
             return Ok(());
         }
@@ -443,7 +457,7 @@ impl Publisher {
                     job,
                     id,
                     PublicationStep::UploadPlanned(&key),
-                    self.options().await?,
+                    self.options(store).await?,
                 )
                 .await?
             {
@@ -467,20 +481,21 @@ impl Publisher {
                     job,
                     id,
                     PublicationStep::UploadPlanned(&key),
-                    self.options().await?,
+                    self.options(store).await?,
                 )
                 .await?
             {
                 return Ok(());
             }
             let url = remote.r2.get_url(&key).await?;
-            let container = remote.graph.create(url.expose()).await?;
+            let container =
+                crate::observability::instagram(store, remote.graph.create(url.expose())).await?;
             if !store
                 .publication_step(
                     job,
                     id,
                     PublicationStep::Container(&container),
-                    self.options().await?,
+                    self.options(store).await?,
                 )
                 .await?
             {
@@ -490,13 +505,18 @@ impl Publisher {
             return Ok(());
         }
         let container = p.container_id.as_deref().context("container ausente")?;
-        match remote.graph.status(container).await? {
+        match crate::observability::instagram(store, remote.graph.status(container)).await? {
             ContainerStatus::InProgress => {
                 if chrono::Utc::now() - p.container_created_at.unwrap_or(p.created_at)
                     > chrono::Duration::minutes(5)
                 {
                     store
-                        .publication_step(job, id, PublicationStep::Failed, self.options().await?)
+                        .publication_step(
+                            job,
+                            id,
+                            PublicationStep::Failed,
+                            self.options(store).await?,
+                        )
                         .await?;
                 } else {
                     store.defer_publication(job, 60).await?;
@@ -504,7 +524,7 @@ impl Publisher {
             }
             ContainerStatus::Error | ContainerStatus::Expired => {
                 store
-                    .publication_step(job, id, PublicationStep::Failed, self.options().await?)
+                    .publication_step(job, id, PublicationStep::Failed, self.options(store).await?)
                     .await?;
             }
             ContainerStatus::Published => {
@@ -512,7 +532,7 @@ impl Publisher {
             }
             ContainerStatus::Finished => {
                 self.ensure_token(store).await?;
-                let options = self.options().await?;
+                let options = self.options(store).await?;
                 if !store
                     .publication_step(job, id, PublicationStep::Ready, options)
                     .await?
@@ -520,13 +540,14 @@ impl Publisher {
                     return Ok(());
                 }
                 if !store
-                    .publication_step(job, id, PublicationStep::Begin, self.options().await?)
+                    .publication_step(job, id, PublicationStep::Begin, self.options(store).await?)
                     .await?
                 {
                     return Ok(());
                 }
                 // O futuro pode ser cancelado daqui em diante: a intenção já impede novo POST.
-                match remote.graph.publish(container).await {
+                match crate::observability::instagram(store, remote.graph.publish(container)).await
+                {
                     Ok(media) => {
                         store
                             .publication_step(job, id, PublicationStep::Published(&media), options)

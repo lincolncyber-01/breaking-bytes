@@ -9,7 +9,7 @@ use stories_config::Settings;
 use stories_core::CapturedRevision;
 use stories_editorial::{
     Editorial, Task,
-    client::{AnthropicClient, CompletionClient, LlmError},
+    client::{CompletionClient, LlmError},
     revisions::{ChangeDecision, ChangeReview},
 };
 use stories_store::{Job, JobFailure, SourceObservation, Store, StoreError, WatchPolicy};
@@ -173,10 +173,10 @@ async fn observe<R: RevisionReader>(
         .await?;
     Ok(())
 }
-pub async fn review(
+pub async fn review<C: CompletionClient>(
     settings: Settings,
     store: Store,
-    client: AnthropicClient,
+    client: C,
     mut stop: watch::Receiver<bool>,
 ) -> Result<()> {
     let engine = Arc::new(

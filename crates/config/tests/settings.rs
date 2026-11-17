@@ -222,3 +222,17 @@ fn priority_weights_must_form_a_finite_distribution() -> Result<(), Box<dyn std:
     config.validate()?;
     Ok(())
 }
+
+#[test]
+fn observability_requires_environment_references_and_bounded_interval()
+-> Result<(), Box<dyn std::error::Error>> {
+    let mut config = settings()?;
+    config.observability.interval_s = 0;
+    assert!(config.validate().is_err());
+    config.observability.interval_s = 60;
+    config.observability.bot_token = "literal-credential".into();
+    assert!(config.validate().is_err());
+    config.observability.bot_token = "env:TELEGRAM_BOT_TOKEN".into();
+    assert!(config.validate().is_ok());
+    Ok(())
+}

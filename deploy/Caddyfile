@@ -1,0 +1,16 @@
+{
+    admin off
+}
+{$ADMIN_DOMAIN} {
+    @allowed path /admin/* /health/*
+    handle @allowed {
+        reverse_proxy app:8080
+    }
+    handle {
+        respond 404
+    }
+    log {
+        output stdout
+        format json
+    }
+}

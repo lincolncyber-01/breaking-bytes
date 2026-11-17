@@ -1,0 +1,86 @@
+name: Segurança e operação
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '20 5 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  CARGO_BUILD_JOBS: '2'
+  CARGO_INCREMENTAL: '0'
+jobs:
+  dependencies:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - run: rustup toolchain install 1.100.0 --profile minimal
+      - run: cargo install cargo-deny --version 0.21.0 --locked
+      - run: cargo deny check
+      - run: cargo install cargo-audit --version 0.23.0 --locked
+      - run: cargo audit --deny warnings
+  operations:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Contratos e restauração real em clusters separados
+        run: BACKUP_INTEGRATION=1 python3 -m unittest discover -s deploy/backup -p test_backup.py -v
+      - name: Construir ferramentas operacionais e conferir versões
+        run: |
+          docker build -f deploy/backup/Dockerfile -t breaking-bytes-backup:ci .
+          docker run --rm --network none --read-only breaking-bytes-backup:ci --help
+          docker run --rm --network none --read-only --entrypoint aws breaking-bytes-backup:ci --version
+      - name: Validar configurações sem imprimir ambientes resolvidos
+        env:
+          POSTGRES_PASSWORD: contract-only
+          DATABASE_URL: postgres://postgres:contract-only@postgres/stories
+          ADMIN_TOKEN: contract-only-admin-token-with-32-bytes
+          GRAFANA_ADMIN_PASSWORD: contract-only-dashboard-password
+          ADMIN_DOMAIN: admin.example.invalid
+          BACKUP_DATABASE_URL: postgres://stories_backup:contract-only@postgres/stories
+          BACKUP_R2_ACCOUNT_ID: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          BACKUP_R2_ACCESS_KEY_ID: contract-only
+          BACKUP_R2_SECRET_ACCESS_KEY: contract-only
+          RESTORE_DATABASE_URL: postgres://postgres:contract-only@restore-db/stories_restore_check
+          RESTORE_DATABASE_PASSWORD: contract-only
+          BOOTSTRAP_DATABASE_URL: postgres://postgres:contract-only@postgres/stories
+          MIGRATION_DATABASE_PASSWORD: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          RUNTIME_DATABASE_PASSWORD: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+          BACKUP_DATABASE_PASSWORD: cccccccccccccccccccccccccccccccc
+        run: |
+          docker compose -f deploy/docker-compose.yml config --quiet
+          docker compose -f deploy/docker-compose.yml -f deploy/monitoring/compose.yml config --quiet
+          docker compose -f deploy/docker-compose.yml -f deploy/caddy-compose.yml config --quiet
+          docker compose -f deploy/backup/compose.yml config --quiet
+          docker compose -f deploy/backup/restore-compose.yml config --quiet
+          docker compose -f deploy/bootstrap-compose.yml config --quiet
+          docker run --rm --network none -e ADMIN_DOMAIN -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2.11.9@sha256:4851e54a46b206517c574821bb5cc67f170d2156041e9fbc4c9193b45e84a75b caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+          docker run --rm --network none --entrypoint promtool -v "$PWD/deploy/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro" prom/prometheus:v3.16.0@sha256:e04987641b57704f408e31f6373ba4138ecf27cb4a165d24aabb6c38fddd0f06 check config /etc/prometheus/prometheus.yml
+          systemd-analyze calendar '*-*-* 00:00:00 America/Bahia'
+          systemd-analyze calendar '*-*-01 01:00:00 America/Bahia'
+  image-scan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Instalar Trivy fixo e conferir checksum da publicação oficial
+        run: |
+          curl --fail --silent --show-error --location https://github.com/aquasecurity/trivy/releases/download/v0.76.2/trivy_0.76.2_Linux-64bit.tar.gz -o /tmp/trivy.tar.gz
+          echo 'bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf  /tmp/trivy.tar.gz' | sha256sum --check
+          tar -xzf /tmp/trivy.tar.gz -C /tmp trivy
+          /tmp/trivy --version
+      - run: docker build -f deploy/Dockerfile -t breaking-bytes:security .
+      - name: Vulnerabilidades e segredos na imagem de produção
+        run: /tmp/trivy image --exit-code 1 --severity HIGH,CRITICAL --scanners vuln,secret --format json --output trivy-app.json breaking-bytes:security
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: security-image-report
+          path: trivy-app.json

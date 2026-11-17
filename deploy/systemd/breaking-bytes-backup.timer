@@ -1,0 +1,10 @@
+[Unit]
+Description=Backup noturno do Breaking Bytes
+
+[Timer]
+OnCalendar=*-*-* 00:00:00 America/Bahia
+Persistent=true
+Unit=breaking-bytes-backup.service
+
+[Install]
+WantedBy=timers.target

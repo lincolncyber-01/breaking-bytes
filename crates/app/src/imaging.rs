@@ -230,6 +230,7 @@ impl Processor {
             }
         }
         let renderer = self.renderer.clone();
+        let render_started = std::time::Instant::now();
         let result=tokio::task::spawn_blocking(move||{
             let mut renderer=renderer.lock().map_err(|_|ImagingError::Render)?;
             let original=json!({"kind":"original","generator":TEMPLATE,"credit":ORIGINAL_CREDIT,"license":"owned"});
@@ -243,6 +244,12 @@ impl Processor {
             let digest=*blake3::hash(&rendered.jpeg).as_bytes();
             Ok::<_,ImagingError>((rendered.jpeg,rendered.layout,provenance,digest))
         }).await?;
+        crate::observability::record(
+            store,
+            stories_store::Metric::Render,
+            render_started.elapsed().as_secs_f64(),
+        )
+        .await;
         match result {
             Ok((bytes, layout, provenance, digest)) => {
                 let path = tokio::time::timeout(

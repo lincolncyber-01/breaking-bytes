@@ -74,6 +74,18 @@ fn main() -> Result<()> {
         .context("não foi possível escrever o hash da credencial")?;
         return Ok(());
     }
+    if std::env::args().any(|arg| arg == "--provision-database") {
+        let database = stories_config::Secret::from_environment("env:BOOTSTRAP_DATABASE_URL")?;
+        let owner = stories_config::Secret::from_environment("env:MIGRATION_DATABASE_PASSWORD")?;
+        let worker = stories_config::Secret::from_environment("env:RUNTIME_DATABASE_PASSWORD")?;
+        let backup = stories_config::Secret::from_environment("env:BACKUP_DATABASE_PASSWORD")?;
+        return tokio::runtime::Builder::new_multi_thread().enable_all().build()?.block_on(async {
+            let store=Store::connect(database.expose(),2,Duration::from_secs(10)).await?;
+            let result=store.provision_roles(owner.expose(),worker.expose(),backup.expose()).await;
+            store.close().await;
+            result.context("provisionamento falhou; conferir usuário administrador e senhas hexadecimais por ambiente")
+        });
+    }
     let secrets = settings.resolve_secrets()?;
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -97,6 +109,7 @@ fn main() -> Result<()> {
             .paused()
             .await
             .context("schema indisponível; execute --migrate antes de iniciar")?;
+        stories_app::observability::initialize()?;
         let listener = TcpListener::bind(settings.admin.bind)
             .await
             .context("não foi possível abrir a Admin API")?;
@@ -104,6 +117,7 @@ fn main() -> Result<()> {
         let token_state=std::sync::Arc::new(stories_app::token::TokenState::new(i64::from(settings.instagram.token.check_interval_s)*2+20,i64::from(settings.instagram.token.warning_days)));
         let publisher_admin=std::sync::Arc::new(stories_app::publication::AdminPublisher::default());
         let app = router(AppState {
+        daily_cap: settings.pipeline.daily_cap,
             store: store.clone(),
             admin_token: secrets.admin_token.clone(),
             dry_run: settings.instagram.dry_run,
@@ -121,7 +135,7 @@ fn main() -> Result<()> {
         let signal_sender=stop_sender.clone();
         let signal=tokio::spawn(async move{shutdown().await;let _=signal_sender.send(true);});
         tracing::info!(bind = %settings.admin.bind, dry_run = settings.instagram.dry_run,
-            phase = 5, collection_enabled=settings.collection.enabled, editorial_enabled=settings.llm.enabled,"serviço iniciado; publicação controlada por modo e preflight");
+            phase = 6, collection_enabled=settings.collection.enabled, editorial_enabled=settings.llm.enabled,"serviço iniciado; publicação controlada por modo e preflight");
         let server=axum::serve(listener, app).with_graceful_shutdown(async move {
             stories_app::collection::wait_for_stop(&mut server_stop).await;
         });

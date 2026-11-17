@@ -218,6 +218,14 @@ impl TokenMonitor {
                     {
                         Ok(o) => o,
                         Err(error) => {
+                            if let TokenError::Api(api) = &error {
+                                crate::observability::record(
+                                    store,
+                                    stories_store::Metric::Instagram(api.code()),
+                                    1.0,
+                                )
+                                .await;
+                            }
                             let mut o = previous
                                 .as_ref()
                                 .map(|v| v.observation.clone())
@@ -290,7 +298,15 @@ impl TokenMonitor {
                         observation.rotation_required = true;
                         observation.failure = Some(TokenFailure::RotationRequired);
                     }
-                    Err(_) => {
+                    Err(error) => {
+                        if let TokenError::Api(api) = &error {
+                            crate::observability::record(
+                                store,
+                                stories_store::Metric::Instagram(api.code()),
+                                1.0,
+                            )
+                            .await;
+                        }
                         observation.rotation_required = true;
                         observation.failure = Some(TokenFailure::RefreshUncertain);
                     }

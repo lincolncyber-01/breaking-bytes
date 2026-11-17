@@ -231,6 +231,7 @@ async fn administrative_rules_and_resolution_are_authenticated_atomic_and_fenced
         })
         .await;
     let app = crate::router(AppState {
+        daily_cap: 40,
         store: store.clone(),
         admin_token: secrets.admin_token,
         dry_run: false,

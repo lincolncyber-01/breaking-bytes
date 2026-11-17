@@ -68,7 +68,7 @@ impl Store {
         weight: i16,
         interval_s: i32,
     ) -> Result<i32, StoreError> {
-        sqlx::query_scalar("INSERT INTO sources(name,layer,kind,url,weight,interval_s) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(name) DO UPDATE SET layer=EXCLUDED.layer, kind=EXCLUDED.kind, url=EXCLUDED.url, weight=EXCLUDED.weight, interval_s=EXCLUDED.interval_s, enabled=true, etag=CASE WHEN sources.url=EXCLUDED.url AND sources.kind=EXCLUDED.kind THEN sources.etag ELSE NULL END, last_modified=CASE WHEN sources.url=EXCLUDED.url AND sources.kind=EXCLUDED.kind THEN sources.last_modified ELSE NULL END RETURNING id")
+        sqlx::query_scalar("INSERT INTO sources(name,layer,kind,url,weight,interval_s) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(name) DO UPDATE SET layer=EXCLUDED.layer, kind=EXCLUDED.kind, url=EXCLUDED.url, weight=EXCLUDED.weight, interval_s=EXCLUDED.interval_s, enabled=true, monitoring_since=CASE WHEN sources.enabled THEN sources.monitoring_since ELSE now() END, etag=CASE WHEN sources.url=EXCLUDED.url AND sources.kind=EXCLUDED.kind THEN sources.etag ELSE NULL END, last_modified=CASE WHEN sources.url=EXCLUDED.url AND sources.kind=EXCLUDED.kind THEN sources.last_modified ELSE NULL END RETURNING id")
             .bind(name).bind(layer).bind(kind).bind(url).bind(weight).bind(interval_s).fetch_one(&self.pool).await.map_err(database_error)
     }
 
@@ -130,6 +130,13 @@ impl Store {
         }
         sqlx::query("UPDATE sources SET etag=CASE WHEN $4 THEN COALESCE($2,etag) ELSE $2 END, last_modified=CASE WHEN $4 THEN COALESCE($3,last_modified) ELSE $3 END, last_polled_at=now(),last_success_at=now(),failures=0,last_error_code=NULL,next_poll_at=$5 WHERE id=$1")
             .bind(source).bind(etag).bind(last_modified).bind(not_modified).bind(next_poll).execute(&mut *tx).await.map_err(database_error)?;
+        if stats.duplicates > 0 {
+            sqlx::query("SELECT record_metric('dedup_blocked_total','url',$1)")
+                .bind(stats.duplicates as f64)
+                .execute(&mut *tx)
+                .await
+                .map_err(database_error)?;
+        }
         tx.commit().await.map_err(database_error)?;
         Ok(stats)
     }
@@ -190,6 +197,7 @@ impl Store {
         .await
         .map_err(database_error)?;
         let mut target = existing;
+        let mut semantic_duplicate = false;
         let mut parent = None;
         if target.is_none() {
             let candidates:Vec<(i64,String,i64)>=sqlx::query_as("SELECT e.id,e.state,e.primary_article_id FROM events e JOIN articles a ON a.id=e.primary_article_id WHERE e.state NOT IN ('REJECTED','SUPERSEDED','FAILED','NEEDS_CORRECTION') AND e.created_at>=now()-make_interval(hours=>$1) AND (a.title_hash=$2 OR a.entities && $3::text[]) ORDER BY e.created_at,e.id LIMIT 200")
@@ -200,6 +208,7 @@ impl Store {
                 match classify(&primary.normalized()?, &normalized, threshold) {
                     Match::Different => {}
                     Match::Same => {
+                        semantic_duplicate = true;
                         target = Some(event);
                         break;
                     }
@@ -212,6 +221,12 @@ impl Store {
                     }
                 }
             }
+        }
+        if semantic_duplicate {
+            sqlx::query("SELECT record_metric('dedup_blocked_total','semantic',1)")
+                .execute(&mut *tx)
+                .await
+                .map_err(database_error)?;
         }
         let event = if let Some(event) = target {
             event

@@ -9,7 +9,7 @@ use stories_config::Settings;
 use stories_core::EventState;
 use stories_editorial::{
     Editorial, Task,
-    client::{AnthropicClient, CompletionClient, LlmError},
+    client::{CompletionClient, LlmError},
 };
 use stories_store::{EditorialOutcome, EditorialStep, Job, JobFailure, Store, StoreError};
 use stories_verify::{Evidence, Level};
@@ -61,11 +61,11 @@ impl EvidenceClient for Collector {
     }
 }
 
-pub async fn run(
+pub async fn run<C: CompletionClient>(
     settings: Settings,
     store: Store,
     http: HttpClient,
-    client: AnthropicClient,
+    client: C,
     mut stop: watch::Receiver<bool>,
 ) -> Result<()> {
     let collector = Collector::new(

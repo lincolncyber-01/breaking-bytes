@@ -1,6 +1,7 @@
 [workspace]
 members = ["crates/core", "crates/config", "crates/store", "crates/normalize", "crates/collectors", "crates/cluster", "crates/verify", "crates/editorial", "crates/imaging", "crates/scheduler", "crates/publisher", "crates/app"]
 resolver = "3"
+exclude = ["fuzz"]
 
 [workspace.package]
 version = "0.1.0"
@@ -10,6 +11,8 @@ publish = false
 repository = "https://github.com/lincolncyber-01/breaking-bytes"
 
 [workspace.dependencies]
+metrics = "=0.24.6"
+metrics-exporter-prometheus = { version = "=0.18.3", default-features = false }
 httpdate = "=1.0.3"
 aws-sdk-s3 = { version = "=1.159.0", default-features = false, features = ["rt-tokio", "behavior-version-latest"] }
 anyhow = "=1.0.104"
@@ -48,18 +51,18 @@ tokio = { version = "=1.54.1", features = ["macros", "rt-multi-thread", "net", "
 tower = { version = "=0.5.3", features = ["util", "limit", "timeout"] }
 tracing = "=0.1.44"
 tracing-subscriber = { version = "=0.3.23", features = ["json", "env-filter"] }
-uuid = { version = "=1.29.2", features = ["v4", "serde"] }
-stories-core = { path = "crates/core" }
-stories-config = { path = "crates/config" }
-stories-store = { path = "crates/store" }
-stories-normalize = { path = "crates/normalize" }
-stories-collectors = { path = "crates/collectors" }
-stories-cluster = { path = "crates/cluster" }
-stories-verify = { path = "crates/verify" }
-stories-editorial = { path = "crates/editorial" }
-stories-imaging = { path = "crates/imaging" }
-stories-scheduler = { path = "crates/scheduler" }
-stories-publisher = { path = "crates/publisher" }
+uuid = { version = "=1.29.3", features = ["v4", "serde"] }
+stories-core = { version = "=0.1.0", path = "crates/core" }
+stories-config = { version = "=0.1.0", path = "crates/config" }
+stories-store = { version = "=0.1.0", path = "crates/store" }
+stories-normalize = { version = "=0.1.0", path = "crates/normalize" }
+stories-collectors = { version = "=0.1.0", path = "crates/collectors" }
+stories-cluster = { version = "=0.1.0", path = "crates/cluster" }
+stories-verify = { version = "=0.1.0", path = "crates/verify" }
+stories-editorial = { version = "=0.1.0", path = "crates/editorial" }
+stories-imaging = { version = "=0.1.0", path = "crates/imaging" }
+stories-scheduler = { version = "=0.1.0", path = "crates/scheduler" }
+stories-publisher = { version = "=0.1.0", path = "crates/publisher" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

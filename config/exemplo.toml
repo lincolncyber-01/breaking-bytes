@@ -78,3 +78,10 @@ enabled = false
 model = 'claude-haiku-5-5'
 timeout_s = 15
 api_key = 'env:LLM_API_KEY'
+
+[observability]
+alerts_enabled = false
+interval_s = 60
+bot_token = 'env:TELEGRAM_BOT_TOKEN'
+chat_id = 'env:TELEGRAM_CHAT_ID'
+backups_expected = true
