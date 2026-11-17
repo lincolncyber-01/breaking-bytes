@@ -37,6 +37,7 @@ pub async fn run_once() -> Result<()> {
             )?)?,
         }),
     };
+    publisher.preflight(&store).await?;
     let lease = Duration::from_secs(30);
     let job = if let Some(job) = store.claim_kind(lease, 5, "reconcile").await? {
         job
