@@ -13,8 +13,10 @@ use uuid::Uuid;
 
 mod collection;
 mod editorial;
+mod imaging;
 pub use collection::{CollectionStats, SourceState};
 pub use editorial::{EditorialContext, EditorialOutcome, EditorialStep};
+pub use imaging::{RenderArtifact, RenderDisposition};
 
 static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("../../migrations");
 

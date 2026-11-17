@@ -130,7 +130,7 @@ pub async fn run(
     }
 }
 
-async fn owned_work<F: Future<Output = Result<()>> + Send>(
+pub(crate) async fn owned_work<F: Future<Output = Result<()>> + Send>(
     store: &Store,
     job: &Job,
     lease: Duration,
@@ -225,13 +225,25 @@ async fn process<C: CompletionClient, E: EvidenceClient>(
                 }
                 match context.draft.clone() {
                     None => {
-                        let data = json!({"evidence":assessment,"kind":context.kind,"rewrite_number":context.rewrites,"retry_reason":context.reason,"style":{"max_title_words":8,"summary_lines":[2,4],"language":"pt-BR"}});
+                        let shorter = job
+                            .payload
+                            .get("shorten")
+                            .and_then(Value::as_bool)
+                            .unwrap_or(false);
+                        let data = json!({"evidence":assessment,"kind":context.kind,"rewrite_number":context.rewrites,"retry_reason":context.reason,"style":{"max_title_words":if shorter{6}else{8},"summary_lines":if shorter{[2,2]}else{[2,4]},"max_line_characters":if shorter{45}else{100},"language":"pt-BR"}});
                         match client.complete(Task::Draft, data).await {
                             Ok(value) => {
                                 let kind = context.kind;
                                 let validator = engine.clone();
                                 match tokio::task::spawn_blocking(move || {
                                     let draft = validator.parse_draft(value, &assessment, kind)?;
+                                    if shorter
+                                        && (draft.title.split_whitespace().count() > 6
+                                            || draft.summary.len() != 2
+                                            || draft.summary.iter().any(|s| s.chars().count() > 45))
+                                    {
+                                        return Err(stories_editorial::EditorialError::Style);
+                                    }
                                     validator.deterministic(&draft, &assessment)?;
                                     Ok::<_, stories_editorial::EditorialError>(draft)
                                 })

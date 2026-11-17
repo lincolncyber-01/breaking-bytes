@@ -109,6 +109,42 @@ revisão humana e inspeção das redações produzidas pelo pipeline. Meta inici
 zero falsas aceitações e 100% de concordância no corpus aprovado pelo operador.
 O blueprint não especifica um percentual; essa suposição está no ADR-007.
 
-CHECKED cria trabalho render com revisão. Ainda não há consumo desses trabalhos
-ou publicação. Quando renderização for implementada, conferir estado, revisão e
-pausa novamente; trabalhos de eventos SUPERSEDED não podem produzir Stories.
+CHECKED cria trabalho render com revisão. O worker da fase 4 consome esses jobs,
+gera o JPEG e confirma RENDERED mais outbox schedule. Publicação ainda não está
+implementada. Estado, revisão, versão, lease e pausa são conferidos na confirmação.
+
+
+## Renderização e artefatos
+
+Aplique a migration 0004 antes de atualizar a aplicação. Consulte docs/images.md
+para revisão das imagens e operação do manifesto. O padrão produz arte original
+sem acesso de rede; com fontes/LLM habilitados, a rota jornalística continua
+exigindo DNS verificável e recusa proxy de ambiente.
+
+Confira imaging_enabled no status. O manifesto é relativo ao diretório do TOML,
+e artifacts_dir é relativo ao diretório de execução ou absoluto. A aplicação
+precisa de escrita nesse diretório; o restante do container pode ser somente
+leitura. Compose conserva os arquivos no volume story-artifacts. Não remova esse
+volume ao atualizar a imagem. A distribuição mantém a licença OFL da Inter.
+
+Os JPEGs usam event_id/revision/hash.jpg. rendered_stories contém hash, dimensões,
+layout, proveniência e dry_run. Estado RENDERED e outbox schedule só são gravados
+após sync do arquivo e diretório. Uma queda antes do commit pode deixar arquivo
+órfão; ela não autoriza uma publicação. A retomada usa novo lease e o mesmo hash.
+Não apague arquivos referenciados no banco. Limpeza automática por retenção ainda
+será implementada na fase 6.
+
+O texto que não couber após redução de 10% ganha substituto para nova verificação
+e redação mais curta. O contador é preservado; no esgotamento, a razão é
+layout_exhausted. Não reduza mais a fonte nem corte texto para liberar o job.
+Um glifo ausente na Inter também exige reescrita ou rejeição; não usamos fontes
+de fallback instaladas no sistema.
+
+Nova evidência em RENDERED/QUEUED enfileira verificação e torna o candidato antigo
+obsoleto. O consumidor schedule/publicação da fase 5 deverá conferir estado e
+revisão antes de avançar. Não consuma essa outbox com scripts genéricos.
+
+Os benchmarks da fase 4 medem o renderizador isolado. O p95 passou no ambiente
+medido, mas houve máximo de 413,8 ms; valide a VPS final e monitore percentis.
+Ainda faltam memória da aplicação inteira, detecção real, R2, Meta e caos de
+publicação. Nenhum resultado desta fase comprova publicação real.

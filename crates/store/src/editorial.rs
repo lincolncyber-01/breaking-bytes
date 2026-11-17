@@ -164,15 +164,7 @@ impl Store {
         let row:Row=sqlx::query_as("SELECT id,state,reason,content_revision,editorial_version,verified_revision,editorial_attempts,assessment_json,draft_json,created_at,parent_event_id FROM events WHERE id=$1 FOR UPDATE")
             .bind(context.event_id).fetch_one(&mut *tx).await.map_err(database_error)?;
         let state = EventState::parse(&row.state)?;
-        if state.is_terminal()
-            || matches!(
-                state,
-                EventState::Publishing
-                    | EventState::Published
-                    | EventState::Rendered
-                    | EventState::Queued
-            )
-        {
+        if state.is_terminal() || matches!(state, EventState::Publishing | EventState::Published) {
             finish(&mut tx, job).await?;
             tx.commit().await.map_err(database_error)?;
             return Ok(EditorialOutcome::Finished);

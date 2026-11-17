@@ -13,6 +13,8 @@ use thiserror::Error;
 pub struct Settings {
     #[serde(default)]
     pub collection: Collection,
+    #[serde(default)]
+    pub imaging: Imaging,
     pub pipeline: Pipeline,
     pub database: Database,
     pub admin: Admin,
@@ -21,6 +23,29 @@ pub struct Settings {
     pub llm: Llm,
     #[serde(default)]
     pub sources: Vec<Source>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Imaging {
+    pub enabled: bool,
+    pub manifest: String,
+    pub allowed_domains: Vec<String>,
+    pub artifacts_dir: String,
+    pub max_bytes: usize,
+    pub max_pixels: u64,
+}
+impl Default for Imaging {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            manifest: "images.json".into(),
+            allowed_domains: Vec::new(),
+            artifacts_dir: "artifacts".into(),
+            max_bytes: 8 * 1024 * 1024,
+            max_pixels: 16_000_000,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -161,12 +186,24 @@ impl Settings {
                 return Err(ConfigError::TooLarge);
             }
         }
-        Self::from_figment(
+        let mut settings = Self::from_figment(
             Figment::new()
                 .merge(Toml::file(config))
                 .merge(Toml::file(sources))
                 .merge(Env::prefixed("STORIES__").split("__")),
-        )
+        )?;
+        if Path::new(&settings.imaging.manifest).is_relative() {
+            let base = config
+                .parent()
+                .filter(|p| !p.as_os_str().is_empty())
+                .unwrap_or_else(|| Path::new("."));
+            settings.imaging.manifest = base
+                .join(&settings.imaging.manifest)
+                .to_str()
+                .ok_or(ConfigError::Invalid("caminho do manifesto de imagens"))?
+                .to_owned();
+        }
+        Ok(settings)
     }
 
     pub fn from_figment(figment: Figment) -> Result<Self, ConfigError> {
@@ -176,6 +213,24 @@ impl Settings {
     }
 
     pub fn validate(&self) -> Result<(), ConfigError> {
+        let image = &self.imaging;
+        if !(1024..=8 * 1024 * 1024).contains(&image.max_bytes)
+            || !(1_000_000..=16_000_000).contains(&image.max_pixels)
+            || image.allowed_domains.len() > 32
+            || image.allowed_domains.iter().any(|h| {
+                h.is_empty() || h.contains('/') || h.contains('*') || h != &h.to_ascii_lowercase()
+            })
+            || [&image.manifest, &image.artifacts_dir].iter().any(|p| {
+                p.is_empty()
+                    || p.len() > 1024
+                    || p.chars().any(char::is_control)
+                    || std::path::Path::new(p)
+                        .components()
+                        .any(|c| matches!(c, std::path::Component::ParentDir))
+            })
+        {
+            return Err(ConfigError::Invalid("imaging"));
+        }
         let c = &self.collection;
         if !(1024..=8_388_608).contains(&c.max_response_bytes)
             || !(1..=200).contains(&c.max_items)

@@ -15,6 +15,7 @@ stories-normalize.workspace = true
 stories-cluster.workspace = true
 stories-verify.workspace = true
 stories-editorial.workspace = true
+stories-imaging.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 uuid.workspace = true

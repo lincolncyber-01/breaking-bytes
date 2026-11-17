@@ -47,6 +47,7 @@ async fn health_auth_pause_and_fail_closed_readiness() -> Result<(), Box<dyn std
     })?;
     let state = AppState {
         editorial_enabled: false,
+        imaging_enabled: false,
         store: store.clone(),
         admin_token: secrets.admin_token,
         dry_run: true,
