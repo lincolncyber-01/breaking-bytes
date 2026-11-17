@@ -204,7 +204,18 @@ pub(crate) async fn process<C: CompletionClient, E: EvidenceClient>(
                 .await?;
             return Ok(());
         }
-        if store.event_blocked(event).await? {store.editorial_commit(job,&context,EditorialStep::Rejected{code:"policy_blocked".into()}).await?;return Ok(());}
+        if store.event_blocked(event).await? {
+            store
+                .editorial_commit(
+                    job,
+                    &context,
+                    EditorialStep::Rejected {
+                        code: "policy_blocked".into(),
+                    },
+                )
+                .await?;
+            return Ok(());
+        }
         let step = match context.state {
             EventState::Clustered => {
                 let age = settings.pipeline.max_age_hours;

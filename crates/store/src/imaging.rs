@@ -84,13 +84,24 @@ impl Store {
             tx.commit().await.map_err(database_error)?;
             return Ok(RenderDisposition::Obsolete);
         }
-        let blocked:bool=sqlx::query_scalar("SELECT event_is_blocked($1)").bind(context.event_id).fetch_one(&mut *tx).await.map_err(database_error)?;
+        let blocked: bool = sqlx::query_scalar("SELECT event_is_blocked($1)")
+            .bind(context.event_id)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(database_error)?;
         if blocked {
-            sqlx::query("UPDATE events SET state='REJECTED',reason='policy_blocked' WHERE id=$1").bind(context.event_id).execute(&mut *tx).await.map_err(database_error)?;
+            sqlx::query("UPDATE events SET state='REJECTED',reason='policy_blocked' WHERE id=$1")
+                .bind(context.event_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(database_error)?;
             let n=sqlx::query("UPDATE jobs SET done_at=now(),lease_token=NULL,lease_until=NULL,locked_at=NULL WHERE id=$1 AND lease_token=$2 AND lease_until>clock_timestamp()").bind(job.id).bind(job.lease_token).execute(&mut *tx).await.map_err(database_error)?.rows_affected();
-            if n!=1{return Err(StoreError::LostLease);}
+            if n != 1 {
+                return Err(StoreError::LostLease);
+            }
             sqlx::query("INSERT INTO audit_log(event_id,step,detail) VALUES($1,'render_policy_blocked','{}')").bind(context.event_id).execute(&mut *tx).await.map_err(database_error)?;
-            tx.commit().await.map_err(database_error)?;return Ok(RenderDisposition::Rejected);
+            tx.commit().await.map_err(database_error)?;
+            return Ok(RenderDisposition::Rejected);
         }
         if let Some(review) = &context.review {
             let mode = artifact

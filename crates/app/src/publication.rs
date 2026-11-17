@@ -18,15 +18,28 @@ use stories_publisher::{
 };
 use stories_scheduler::{Policy, Signals};
 use stories_store::{Job, JobFailure, PublicationPolicy, PublicationStep, Store, StoreError};
-use tokio::{io::AsyncReadExt, sync::{watch,RwLock}};
+use tokio::{
+    io::AsyncReadExt,
+    sync::{RwLock, watch},
+};
 
 #[derive(Default)]
-pub struct AdminPublisher {graph:RwLock<Option<Graph>>}
-impl AdminPublisher {
-    pub(crate) async fn graph(&self)->Option<Graph>{self.graph.read().await.clone()}
-    pub(crate) async fn bind(&self,graph:Graph){*self.graph.write().await=Some(graph);}
+pub struct AdminPublisher {
+    graph: RwLock<Option<Graph>>,
 }
-pub struct PublisherRuntime {pub healthy:Arc<AtomicBool>,pub token_state:Arc<crate::token::TokenState>,pub admin:Arc<AdminPublisher>}
+impl AdminPublisher {
+    pub(crate) async fn graph(&self) -> Option<Graph> {
+        self.graph.read().await.clone()
+    }
+    pub(crate) async fn bind(&self, graph: Graph) {
+        *self.graph.write().await = Some(graph);
+    }
+}
+pub struct PublisherRuntime {
+    pub healthy: Arc<AtomicBool>,
+    pub token_state: Arc<crate::token::TokenState>,
+    pub admin: Arc<AdminPublisher>,
+}
 
 struct Remote {
     graph: Graph,
@@ -45,10 +58,14 @@ pub async fn run(
     store: Store,
     http: HttpClient,
     secrets: Secrets,
-    runtime:PublisherRuntime,
+    runtime: PublisherRuntime,
     mut stop: watch::Receiver<bool>,
 ) -> Result<()> {
-    let PublisherRuntime{healthy,token_state,admin}=runtime;
+    let PublisherRuntime {
+        healthy,
+        token_state,
+        admin,
+    } = runtime;
     let remote = if settings.instagram.dry_run {
         None
     } else {
@@ -79,7 +96,9 @@ pub async fn run(
             )?,
         })
     };
-    if let Some(remote)=&remote {admin.bind(remote.graph.clone()).await;}
+    if let Some(remote) = &remote {
+        admin.bind(remote.graph.clone()).await;
+    }
     let account = remote
         .as_ref()
         .map(|v| v.graph.account_key())
@@ -189,12 +208,18 @@ pub async fn run(
                 } else {
                     None
                 };
-            let minimum_delay=error.downcast_ref::<stories_publisher::PublishError>().and_then(|e|e.retry_after()).unwrap_or(0).min(86400);
+            let minimum_delay = error
+                .downcast_ref::<stories_publisher::PublishError>()
+                .and_then(|e| e.retry_after())
+                .unwrap_or(0)
+                .min(86400);
             let retry = if publication
                 .as_ref()
                 .is_some_and(|p| p.request_started_at.is_some())
             {
-                store.defer_publication(&job, minimum_delay.max(60) as i32).await
+                store
+                    .defer_publication(&job, minimum_delay.max(60) as i32)
+                    .await
             } else if let Some(p) = publication
                 .as_ref()
                 .filter(|_| job.attempts >= publisher.settings.database.max_attempts)
@@ -467,7 +492,9 @@ impl Publisher {
         let container = p.container_id.as_deref().context("container ausente")?;
         match remote.graph.status(container).await? {
             ContainerStatus::InProgress => {
-                if chrono::Utc::now() - p.container_created_at.unwrap_or(p.created_at) > chrono::Duration::minutes(5) {
+                if chrono::Utc::now() - p.container_created_at.unwrap_or(p.created_at)
+                    > chrono::Duration::minutes(5)
+                {
                     store
                         .publication_step(job, id, PublicationStep::Failed, self.options().await?)
                         .await?;
@@ -514,7 +541,14 @@ impl Publisher {
                             self.healthy.store(false, Ordering::Relaxed);
                         }
                         store
-                            .publication_step(job, id, PublicationStep::UncertainDelay(error.retry_after().unwrap_or(60).clamp(60,86400) as u32), options)
+                            .publication_step(
+                                job,
+                                id,
+                                PublicationStep::UncertainDelay(
+                                    error.retry_after().unwrap_or(60).clamp(60, 86400) as u32,
+                                ),
+                                options,
+                            )
                             .await?;
                     }
                 }
@@ -573,5 +607,5 @@ async fn read_artifact(root: &Path, relative: &str, hash: &[u8], length: i64) ->
 #[cfg(test)]
 pub(crate) mod tests;
 
-#[cfg(feature="test-support")]
+#[cfg(feature = "test-support")]
 pub mod chaos_harness;

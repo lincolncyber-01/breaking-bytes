@@ -24,9 +24,13 @@ pub enum PublishError {
     #[error("serviço externo retornou HTTP {0}")]
     Http(u16),
     #[error("serviço externo retornou HTTP {status}, retry-after {retry_after_s} segundos")]
-    HttpWithRetry {status:u16,retry_after_s:u64},
+    HttpWithRetry { status: u16, retry_after_s: u64 },
     #[error("Graph retornou HTTP {status}, código {code}")]
-    Graph {status:u16,code:u32,retry_after_s:Option<u64>},
+    Graph {
+        status: u16,
+        code: u32,
+        retry_after_s: Option<u64>,
+    },
     #[error("resposta externa inválida ou acima do limite")]
     Response,
     #[error("não foi possível assinar a operação R2")]
@@ -66,16 +70,46 @@ async fn digest(bytes: Vec<u8>) -> Result<(Vec<u8>, [u8; 32]), PublishError> {
     .map_err(|_| PublishError::Artifact)
 }
 
-fn retry_after(response:&reqwest::Response)->Option<u64> {
-    let header=response.headers().get("retry-after")?.to_str().ok()?;
-    header.parse::<u64>().ok().or_else(||httpdate::parse_http_date(header).ok().map(|t|t.duration_since(std::time::SystemTime::now()).map(|d|d.as_secs()).unwrap_or(1))).map(|s|s.clamp(1,86400))
+fn retry_after(response: &reqwest::Response) -> Option<u64> {
+    let header = response.headers().get("retry-after")?.to_str().ok()?;
+    header
+        .parse::<u64>()
+        .ok()
+        .or_else(|| {
+            httpdate::parse_http_date(header).ok().map(|t| {
+                t.duration_since(std::time::SystemTime::now())
+                    .map(|d| d.as_secs())
+                    .unwrap_or(1)
+            })
+        })
+        .map(|s| s.clamp(1, 86400))
 }
-fn response_error(response:&reqwest::Response)->PublishError {
-    match retry_after(response){Some(seconds)=>PublishError::HttpWithRetry{status:response.status().as_u16(),retry_after_s:seconds},None=>PublishError::Http(response.status().as_u16())}
+fn response_error(response: &reqwest::Response) -> PublishError {
+    match retry_after(response) {
+        Some(seconds) => PublishError::HttpWithRetry {
+            status: response.status().as_u16(),
+            retry_after_s: seconds,
+        },
+        None => PublishError::Http(response.status().as_u16()),
+    }
 }
 impl PublishError {
-    pub fn retry_after(&self)->Option<u64>{match self{Self::HttpWithRetry{retry_after_s,..}=>Some(*retry_after_s),Self::Graph{retry_after_s,..}=>*retry_after_s,_=>None}}
-    pub fn code(&self)->u32{match self{Self::Graph{code,..}=>*code,Self::Http(s)|Self::HttpWithRetry{status:s,..}=>u32::from(*s),Self::Authentication=>190,Self::Permission=>200,_=>0}}
+    pub fn retry_after(&self) -> Option<u64> {
+        match self {
+            Self::HttpWithRetry { retry_after_s, .. } => Some(*retry_after_s),
+            Self::Graph { retry_after_s, .. } => *retry_after_s,
+            _ => None,
+        }
+    }
+    pub fn code(&self) -> u32 {
+        match self {
+            Self::Graph { code, .. } => *code,
+            Self::Http(s) | Self::HttpWithRetry { status: s, .. } => u32::from(*s),
+            Self::Authentication => 190,
+            Self::Permission => 200,
+            _ => 0,
+        }
+    }
 
     pub fn token_failure(&self) -> Option<stories_core::token::TokenFailure> {
         match self {

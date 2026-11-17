@@ -51,7 +51,9 @@ impl TokenState {
             .is_some_and(|o| o.publication_allowed(Utc::now(), self.max_stale_s))
     }
     #[cfg(test)]
-    pub(crate) async fn test_install(&self,observation:TokenObservation){self.update(observation).await;}
+    pub(crate) async fn test_install(&self, observation: TokenObservation) {
+        self.update(observation).await;
+    }
     async fn update(&self, observation: TokenObservation) {
         *self.observation.write().await = Some(observation);
     }
@@ -369,7 +371,7 @@ impl TokenMonitor {
         }
         Ok(())
     }
-    #[cfg(any(test,feature="test-support"))]
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn test_facebook(client: TokenClient) -> Result<Self> {
         Ok(Self {
             client,

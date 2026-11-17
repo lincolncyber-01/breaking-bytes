@@ -199,13 +199,15 @@ impl Store {
             if a.dry_run != options.dry_run {
                 return Err(StoreError::Conflict);
             }
-            let fresh: bool = sqlx::query_scalar("SELECT publication_evidence_fresh($1,$2,$3) AND NOT event_is_blocked($1)")
-                .bind(event)
-                .bind(options.max_age_hours as i32)
-                .bind(options.dry_run)
-                .fetch_one(&mut *tx)
-                .await
-                .map_err(database_error)?;
+            let fresh: bool = sqlx::query_scalar(
+                "SELECT publication_evidence_fresh($1,$2,$3) AND NOT event_is_blocked($1)",
+            )
+            .bind(event)
+            .bind(options.max_age_hours as i32)
+            .bind(options.dry_run)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(database_error)?;
             let revision_busy:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM events target JOIN publication_reviews current ON current.id=target.review_id JOIN publication_reviews other ON other.publication_id=current.publication_id JOIN events candidate ON candidate.review_id=other.id JOIN publications p ON p.event_id=candidate.id WHERE target.id=$1 AND p.event_id<>target.id AND p.account_key=$2 AND p.dry_run=$3 AND p.status IN('creating','container_ready','publishing','uncertain'))")
                 .bind(event).bind(options.account).bind(options.dry_run).fetch_one(&mut *tx).await.map_err(database_error)?;
             if !fresh {
@@ -287,13 +289,15 @@ impl Store {
                     .fetch_one(&mut *tx)
                     .await
                     .map_err(database_error)?;
-            let fresh: bool = sqlx::query_scalar("SELECT publication_evidence_fresh($1,$2,$3) AND NOT event_is_blocked($1)")
-                .bind(p.event_id)
-                .bind(options.max_age_hours as i32)
-                .bind(options.dry_run)
-                .fetch_one(&mut *tx)
-                .await
-                .map_err(database_error)?;
+            let fresh: bool = sqlx::query_scalar(
+                "SELECT publication_evidence_fresh($1,$2,$3) AND NOT event_is_blocked($1)",
+            )
+            .bind(p.event_id)
+            .bind(options.max_age_hours as i32)
+            .bind(options.dry_run)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(database_error)?;
             if paused {
                 defer(&mut tx, job, 5, None).await?;
                 tx.commit().await.map_err(database_error)?;
@@ -427,7 +431,11 @@ impl Store {
                 ("published_unresolved", "published_without_media_id")
             }
             PublicationStep::Uncertain if !before && !p.dry_run => ("uncertain", "uncertain"),
-            PublicationStep::UncertainDelay(seconds) if !before&&!p.dry_run&&(1..=86400).contains(&seconds)=>("uncertain","uncertain"),
+            PublicationStep::UncertainDelay(seconds)
+                if !before && !p.dry_run && (1..=86400).contains(&seconds) =>
+            {
+                ("uncertain", "uncertain")
+            }
             PublicationStep::Simulated if before && p.dry_run => {
                 sqlx::query("UPDATE publications SET simulated_at=now() WHERE id=$1")
                     .bind(id)
@@ -461,8 +469,14 @@ impl Store {
         .await?;
         if terminal {
             finish(&mut tx, job).await?;
-        } else if matches!(step, PublicationStep::Uncertain|PublicationStep::UncertainDelay(_)) {
-            let seconds=match step{PublicationStep::UncertainDelay(s)=>s as i32,_=>60};
+        } else if matches!(
+            step,
+            PublicationStep::Uncertain | PublicationStep::UncertainDelay(_)
+        ) {
+            let seconds = match step {
+                PublicationStep::UncertainDelay(s) => s as i32,
+                _ => 60,
+            };
             defer(&mut tx, job, seconds, Some("reconcile")).await?;
         }
         tx.commit().await.map_err(database_error)?;

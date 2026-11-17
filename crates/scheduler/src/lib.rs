@@ -15,10 +15,16 @@ pub struct Signals {
 
 impl Signals {
     pub fn score(self) -> Result<f64, PolicyError> {
-        self.score_with([0.30,0.20,0.20,0.15,0.15])
+        self.score_with([0.30, 0.20, 0.20, 0.15, 0.15])
     }
-    pub fn score_with(self,weights:[f64;5])->Result<f64,PolicyError> {
-        if weights.iter().any(|w|!w.is_finite()||!(0.0..=1.0).contains(w))||(weights.iter().sum::<f64>()-1.0).abs()>0.000001{return Err(PolicyError::Options);}
+    pub fn score_with(self, weights: [f64; 5]) -> Result<f64, PolicyError> {
+        if weights
+            .iter()
+            .any(|w| !w.is_finite() || !(0.0..=1.0).contains(w))
+            || (weights.iter().sum::<f64>() - 1.0).abs() > 0.000001
+        {
+            return Err(PolicyError::Options);
+        }
         let values = [
             self.impact,
             self.novelty,
@@ -32,11 +38,7 @@ impl Signals {
         {
             return Err(PolicyError::Signals);
         }
-        Ok(values
-            .into_iter()
-            .zip(weights)
-            .map(|(v, w)| v * w)
-            .sum())
+        Ok(values.into_iter().zip(weights).map(|(v, w)| v * w).sum())
     }
 }
 
@@ -219,9 +221,22 @@ mod tests {
 mod configured_weights {
     use super::*;
     #[test]
-    fn configured_weights_preserve_bounds_and_choose_the_configured_signal()->Result<(),PolicyError> {
-        let signals=Signals{impact:0.2,novelty:0.4,reliability:0.6,reach:0.8,urgency:1.0};
-        for (index,expected) in [0.2,0.4,0.6,0.8,1.0].into_iter().enumerate(){let mut weights=[0.0;5];weights[index]=1.0;assert!((signals.score_with(weights)?-expected).abs()<1e-12);}
-        assert!(signals.score_with([0.0;5]).is_err());assert!(signals.score_with([f64::NAN;5]).is_err());Ok(())
+    fn configured_weights_preserve_bounds_and_choose_the_configured_signal()
+    -> Result<(), PolicyError> {
+        let signals = Signals {
+            impact: 0.2,
+            novelty: 0.4,
+            reliability: 0.6,
+            reach: 0.8,
+            urgency: 1.0,
+        };
+        for (index, expected) in [0.2, 0.4, 0.6, 0.8, 1.0].into_iter().enumerate() {
+            let mut weights = [0.0; 5];
+            weights[index] = 1.0;
+            assert!((signals.score_with(weights)? - expected).abs() < 1e-12);
+        }
+        assert!(signals.score_with([0.0; 5]).is_err());
+        assert!(signals.score_with([f64::NAN; 5]).is_err());
+        Ok(())
     }
 }

@@ -1,7 +1,7 @@
 //! Tipos de domínio e invariantes compartilhadas pelo pipeline.
 
-pub mod token;
 pub mod policy;
+pub mod token;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;

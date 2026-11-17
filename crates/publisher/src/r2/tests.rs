@@ -127,15 +127,28 @@ async fn signed_put_readback_and_idempotent_delete_contract()
 }
 
 #[tokio::test]
-async fn response_retry_after_is_bounded_for_storage()->Result<(),Box<dyn std::error::Error>> {
-    use wiremock::{Mock,MockServer,ResponseTemplate,matchers::path};
-    let server=MockServer::start().await;
-    for (route,value) in [("seconds","120"),("maximum","999999999"),("past","Wed, 21 Oct 2015 07:28:00 GMT")] {
-        Mock::given(path(format!("/{route}"))).respond_with(ResponseTemplate::new(503).insert_header("retry-after",value)).mount(&server).await;
+async fn response_retry_after_is_bounded_for_storage() -> Result<(), Box<dyn std::error::Error>> {
+    use wiremock::{Mock, MockServer, ResponseTemplate, matchers::path};
+    let server = MockServer::start().await;
+    for (route, value) in [
+        ("seconds", "120"),
+        ("maximum", "999999999"),
+        ("past", "Wed, 21 Oct 2015 07:28:00 GMT"),
+    ] {
+        Mock::given(path(format!("/{route}")))
+            .respond_with(ResponseTemplate::new(503).insert_header("retry-after", value))
+            .mount(&server)
+            .await;
     }
-    let client=reqwest::Client::builder().no_proxy().build()?;
-    for (route,expected) in [("seconds",120),("maximum",86400),("past",1)] {
-        let response=client.get(format!("{}/{route}",server.uri())).send().await?;
-        let error=crate::response_error(&response);assert_eq!(error.retry_after(),Some(expected));assert_eq!(error.code(),503);
-    }Ok(())
+    let client = reqwest::Client::builder().no_proxy().build()?;
+    for (route, expected) in [("seconds", 120), ("maximum", 86400), ("past", 1)] {
+        let response = client
+            .get(format!("{}/{route}", server.uri()))
+            .send()
+            .await?;
+        let error = crate::response_error(&response);
+        assert_eq!(error.retry_after(), Some(expected));
+        assert_eq!(error.code(), 503);
+    }
+    Ok(())
 }

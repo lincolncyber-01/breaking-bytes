@@ -8,7 +8,7 @@ use axum::{
     http::{StatusCode, header::AUTHORIZATION},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::{get, put, post},
+    routing::{get, post, put},
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -23,9 +23,9 @@ use stories_store::Store;
 use subtle::ConstantTimeEq;
 use tower::{ServiceBuilder, limit::ConcurrencyLimitLayer};
 
+mod admin;
 pub mod collection;
 mod editorial;
-mod admin;
 pub mod evaluation;
 pub mod imaging;
 pub mod pipeline;

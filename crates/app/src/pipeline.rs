@@ -12,7 +12,7 @@ pub async fn run(
     settings: Settings,
     store: Store,
     secrets: Secrets,
-    runtime:crate::publication::PublisherRuntime,
+    runtime: crate::publication::PublisherRuntime,
     mut stop: watch::Receiver<bool>,
 ) -> Result<()> {
     if !settings.collection.enabled

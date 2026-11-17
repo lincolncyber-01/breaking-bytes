@@ -178,14 +178,22 @@ async fn oauth_and_permission_codes_have_sanitized_typed_errors()
     Ok(())
 }
 
-
 #[tokio::test]
-async fn retry_after_preserves_graph_code_and_never_exposes_error_message()->Result<(),Box<dyn std::error::Error>> {
-    let server=MockServer::start().await;
-    Mock::given(path("/v27.0/123/content_publishing_limit")).respond_with(ResponseTemplate::new(429).insert_header("retry-after","120").set_body_json(json!({"error":{"code":4,"message":"credential-must-not-escape"}}))).mount(&server).await;
-    let graph=client(&server)?;
-    let error=graph.quota().await.err().ok_or("erro esperado")?;
-    assert_eq!(error.retry_after(),Some(120));assert_eq!(error.code(),4);
+async fn retry_after_preserves_graph_code_and_never_exposes_error_message()
+-> Result<(), Box<dyn std::error::Error>> {
+    let server = MockServer::start().await;
+    Mock::given(path("/v27.0/123/content_publishing_limit"))
+        .respond_with(
+            ResponseTemplate::new(429)
+                .insert_header("retry-after", "120")
+                .set_body_json(json!({"error":{"code":4,"message":"credential-must-not-escape"}})),
+        )
+        .mount(&server)
+        .await;
+    let graph = client(&server)?;
+    let error = graph.quota().await.err().ok_or("erro esperado")?;
+    assert_eq!(error.retry_after(), Some(120));
+    assert_eq!(error.code(), 4);
     assert!(!format!("{error:?} {error}").contains("credential-must-not-escape"));
     Ok(())
 }

@@ -97,8 +97,15 @@ impl Store {
         }
         let mut tx = self.pool.begin().await.map_err(database_error)?;
         let mut stats = CollectionStats::default();
-        let blocked:bool=sqlx::query_scalar("SELECT source_is_blocked($1)").bind(source).fetch_one(&mut *tx).await.map_err(database_error)?;
-        if blocked {tx.commit().await.map_err(database_error)?;return Ok(stats);}
+        let blocked: bool = sqlx::query_scalar("SELECT source_is_blocked($1)")
+            .bind(source)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(database_error)?;
+        if blocked {
+            tx.commit().await.map_err(database_error)?;
+            return Ok(stats);
+        }
         for article in articles {
             let inserted:Option<i64>=sqlx::query_scalar("INSERT INTO articles(source_id,url_canonical,title,title_hash,body_excerpt,image_url,published_at,entities,facts,tokens) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(url_canonical) DO NOTHING RETURNING id")
                 .bind(source).bind(&article.url).bind(&article.title).bind(article.title_hash.as_slice()).bind(&article.excerpt).bind(&article.image_url).bind(article.published_at).bind(&article.entities).bind(&article.facts).bind(&article.tokens)

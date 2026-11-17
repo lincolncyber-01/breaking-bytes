@@ -190,8 +190,17 @@ impl Store {
             tx.commit().await.map_err(database_error)?;
             return Ok(EditorialOutcome::Finished);
         }
-        let blocked:bool=sqlx::query_scalar("SELECT event_is_blocked($1)").bind(row.id).fetch_one(&mut *tx).await.map_err(database_error)?;
-        if blocked {terminal(&mut tx,row.id,"REJECTED","policy_blocked").await?;finish(&mut tx,job).await?;tx.commit().await.map_err(database_error)?;return Ok(EditorialOutcome::Finished);}
+        let blocked: bool = sqlx::query_scalar("SELECT event_is_blocked($1)")
+            .bind(row.id)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(database_error)?;
+        if blocked {
+            terminal(&mut tx, row.id, "REJECTED", "policy_blocked").await?;
+            finish(&mut tx, job).await?;
+            tx.commit().await.map_err(database_error)?;
+            return Ok(EditorialOutcome::Finished);
+        }
         if let Some(review) = &context.review {
             let fresh: bool = sqlx::query_scalar("SELECT revision_evidence_fresh($1,$2,$3)")
                 .bind(row.id)
