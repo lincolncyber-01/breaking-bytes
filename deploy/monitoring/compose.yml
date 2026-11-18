@@ -29,6 +29,7 @@ services:
       - ./monitoring/dashboard.json:/var/lib/grafana/dashboards/stories.json:ro
       - grafana-data:/var/lib/grafana
     ports: ['127.0.0.1:3000:3000']
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=32m']
     depends_on: [prometheus]
     restart: unless-stopped
     read_only: true

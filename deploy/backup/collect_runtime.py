@@ -27,7 +27,8 @@ for binary in inputs:
         library = Path(library)
         if str(library).startswith('/usr/local/'):
             continue
-        destination = root / library.relative_to('/')
+        # A base usa /lib como symlink de /usr/lib; copie no destino canônico.
+        destination = root / library.resolve().relative_to('/')
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(library.resolve(), destination)
         owners = subprocess.run(['dpkg-query', '-S', str(library.resolve())], capture_output=True, text=True, timeout=10)
@@ -41,7 +42,7 @@ status = root / 'var/lib/dpkg/status.d'
 status.mkdir(parents=True, exist_ok=True)
 for package in sorted(packages):
     result = subprocess.run(['dpkg-query', '-s', package], capture_output=True, check=True, timeout=10)
-    (status / package.replace(':', '_')).write_bytes(result.stdout)
+    (status / package.split(':')[0]).write_bytes(result.stdout)
     source = Path('/usr/share/doc') / package.split(':')[0] / 'copyright'
     if source.exists():
         destination = root / source.relative_to('/')

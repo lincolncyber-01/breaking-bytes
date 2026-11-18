@@ -69,6 +69,7 @@ jobs:
           docker run --rm --network none --entrypoint promtool -v "$PWD/deploy/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro" prom/prometheus:v3.16.0@sha256:e04987641b57704f408e31f6373ba4138ecf27cb4a165d24aabb6c38fddd0f06 check config /etc/prometheus/prometheus.yml
           systemd-analyze calendar '*-*-* 00:00:00 America/Bahia'
           systemd-analyze calendar '*-*-01 01:00:00 America/Bahia'
+          python3 deploy/monitoring/smoke.py
   image-scan:
     runs-on: ubuntu-24.04
     timeout-minutes: 60

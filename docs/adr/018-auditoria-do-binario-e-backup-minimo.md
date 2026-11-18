@@ -41,3 +41,13 @@ Fontes: https://rustsec.org/advisories/RUSTSEC-2026-0459.html ;
 https://github.com/rust-secure-code/cargo-auditable ;
 https://ftp.postgresql.org/pub/source/v16.15/ ;
 https://github.com/GoogleContainerTools/distroless .
+
+
+## Compatibilidade de distribuição
+
+O blueprint chama o executável de estático. O artefato GNU validado usa glibc e
+libgcc dinamicamente; ldd e a imagem sem shell confirmam isso. A alternativa
+adotada conserva a stack exigida (especialmente ring, fontes e SDK AWS) e mantém
+apenas essas bibliotecas na imagem. Não se declara link estático nem suporte a
+musl sem build, snapshots e benchmarks próprios. O build release continua com
+LTO fat, um codegen unit, panic abort e strip, conforme o blueprint.
