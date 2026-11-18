@@ -26,8 +26,7 @@ jobs:
       - run: python3 -m unittest discover -s tools -p test_security_exceptions.py -v
       - run: python3 tools/check_security_exceptions.py
       - run: cargo deny check
-      - run: cargo install cargo-audit --version 0.23.0 --locked
-      - run: cargo audit --deny warnings
+
   operations:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -70,7 +69,7 @@ jobs:
           systemd-analyze calendar '*-*-01 01:00:00 America/Bahia'
   image-scan:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Instalar Trivy fixo e conferir checksum da publicação oficial
@@ -79,7 +78,20 @@ jobs:
           echo 'bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf  /tmp/trivy.tar.gz' | sha256sum --check
           tar -xzf /tmp/trivy.tar.gz -C /tmp trivy
           /tmp/trivy --version
+      - run: rustup toolchain install 1.100.0 --profile minimal
+      - run: cargo install cargo-audit --version 0.23.0 --locked
       - run: docker build -f deploy/Dockerfile -t breaking-bytes:security .
+      - name: Auditar o executável realmente entregue e sua lista de dependências
+        run: |
+          mkdir -p artifacts
+          image_container=$(docker create breaking-bytes:security)
+          docker cp "$image_container:/app/stories-tech" artifacts/stories-tech
+          docker rm "$image_container"
+          objcopy --dump-section .dep-v0=artifacts/dependencies.zlib artifacts/stories-tech /tmp/sbom-copy
+          python3 -m unittest discover -s tools -p test_binary_sbom.py -v
+          python3 tools/check_binary_sbom.py artifacts/dependencies.zlib artifacts/stories-tech.sbom.json
+          cargo audit --deny warnings bin artifacts/stories-tech
+
       - name: Vulnerabilidades e segredos na imagem de produção
         run: /tmp/trivy image --exit-code 1 --severity HIGH,CRITICAL --scanners vuln,secret --format json --output trivy-app.json breaking-bytes:security
       - name: Construir e verificar a imagem operacional
@@ -93,3 +105,4 @@ jobs:
           path: |
             trivy-app.json
             trivy-backup.json
+            artifacts/stories-tech.sbom.json

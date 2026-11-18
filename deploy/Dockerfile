@@ -7,7 +7,8 @@ COPY crates ./crates
 COPY migrations ./migrations
 COPY config ./config
 COPY assets ./assets
-RUN mkdir -p /build/artifacts && cargo build --release --locked --package stories-app --bin stories-tech
+RUN cargo install cargo-auditable --version 0.7.7 --locked
+RUN mkdir -p /build/artifacts && cargo auditable build --release --locked --package stories-app --bin stories-tech
 
 FROM gcr.io/distroless/base-nossl-debian13:nonroot@sha256:89815d620ac01d8de13cdaf04d19ed874447ca2296d4985b14b818f6e5e47854
 WORKDIR /app
