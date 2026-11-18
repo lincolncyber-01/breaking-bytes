@@ -39,6 +39,8 @@ jobs:
           docker build -f deploy/backup/Dockerfile -t breaking-bytes-backup:ci .
           docker run --rm --network none --read-only breaking-bytes-backup:ci --help
           docker run --rm --network none --read-only --entrypoint aws breaking-bytes-backup:ci --version
+          docker run --rm --network none --read-only --entrypoint python3 breaking-bytes-backup:ci -I -c 'from zoneinfo import ZoneInfo; import ssl; print(ZoneInfo("America/Bahia")); print(ssl.OPENSSL_VERSION)'
+          BACKUP_INTEGRATION=1 BACKUP_TOOL_IMAGE=breaking-bytes-backup:ci python3 -m unittest discover -s deploy/backup -p test_backup.py -v
       - name: Validar configurações sem imprimir ambientes resolvidos
         env:
           POSTGRES_PASSWORD: contract-only

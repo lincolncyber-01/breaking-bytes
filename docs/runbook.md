@@ -1,8 +1,9 @@
 # Runbook operacional
 
-Escopo atual: fundação, captura, editorial, renderização e publicação em dry_run;
-clientes Meta/R2 e correções disponíveis para validação em staging. Controles da fase 6
-estão em validação. Os aceites externos continuam pendentes.
+Escopo: pipeline implementado até publicação, reconciliação e operação. Consulte
+[matriz de requisitos](requirements.md) e [relatório da fase 6](reports/phase-6.md)
+para separar gates automáticos de aceites externos. Credenciais, observação
+contínua e staging/canário reais continuam pendentes.
 
 ## Inicialização e migrations
 
@@ -64,14 +65,14 @@ URL não comprova ausência de duplicatas semânticas. Nenhum Story será public
 
 ## GitHub e limites da validação
 
-Use uma conexão GitHub com escrita de conteúdo e workflows no repositório.
-Quando houver várias contas conectadas, selecione explicitamente a conta do
-proprietário lincolncyber-01. Envie mudanças por branch e PR, preservando revisão
-antes de integrar à principal. A fundação está integrada à main. A captura está na branch codex/phase-2-collection.
+O trabalho está em PRs incrementais empilhados no repositório do proprietário.
+Revise e integre na ordem das dependências; a principal contém a fundação.
+Os checks de cada PR registram o commit efetivamente validado. Não atribua ao
+commit seguinte resultados anteriores quando houver mudanças relevantes.
 
-Proteção de branch, CI remoto, credenciais externas, backups, alertas, publicação
-de teste, caos, snapshots, benchmarks e canário ainda precisam dos marcos das
-fases seguintes. Esta fundação não deve ser anunciada como pronta para produção.
+Não exponha a Admin API/metrics sem proteção de rede. Não envie segredos em
+comentários de PR, relatórios, diagnósticos ou artefatos. Use os procedimentos
+específicos de tokens, backup e reconciliação dos guias vinculados.
 
 
 ## Verificação e redação
@@ -151,10 +152,11 @@ revisão antes de avançar. Não consuma essa outbox com scripts genéricos.
 
 Os benchmarks da fase 4 medem o renderizador isolado. O p95 passou no ambiente
 medido, mas houve máximo de 413,8 ms; valide a VPS final e monitore percentis.
-Ainda faltam memória da aplicação inteira, detecção real, R2, Meta e caos de
-publicação. Nenhum resultado desta fase comprova publicação real.
+O teste de caos da fase 5 passou com processos reais e Meta simulada. Memória
+sob carga completa, detecção real, R2 e Meta reais continuam sem aceite.
+Consulte reports/benchmarks.md para medições atuais e seus limites.
 
-## Publicação em andamento
+## Publicação e reconciliação
 
 Leia docs/publication.md antes de alterar o modo. Aplique a migration 0005.
 As intenções uncertain e published_unresolved exigem acompanhamento; não apague

@@ -33,7 +33,7 @@ fuzz/{Cargo.toml,Cargo.lock,fuzz_targets/feed.rs,fuzz_targets/html.rs,fuzz_targe
 docs/{adr/016-operacao.md,backups.md,observability.md,runbook.md,reports/phase-6.md}
 ```
 
-Os resultados efetivamente executados serão acrescentados após os portões.
+As evidências abaixo distinguem resultados locais, CI e aceites externos.
 
 ## Resultados intermediários
 
@@ -82,3 +82,39 @@ Os testes de benchmark locais elevam o total a 110. Os scans iniciais reprovaram
 por três avisos de manutenção, licença MIT-0 não admitida e OpenSSL da base. A
 correção e as exceções limitadas estão em ADR-017, com validação automática.
 Os resultados desses portões ainda precisam da nova execução do código final.
+
+## Evidência adicional em release e operações
+
+A execução CI 44203846339 concluiu os três jobs com sucesso no commit 5a014bf:
+qualidade (110 testes em 33,257 s, formatação, Clippy, build release e render
+na imagem somente leitura/sem rede), cobertura de domínio >=80% e benchmarks.
+Fuzz 44203846442 passou com três alvos, 20 segundos por alvo. O scan da aplicação
+nesse commit passou sem HIGH/CRITICAL e sem segredos. Cargo-deny passou no
+commit 6a93d37 (job 134477142406). As mudanças posteriores de empacotamento e
+retenção de artefatos ainda dependem do resultado da execução final.
+
+O novo benchmark release mediu captura p95 4,642 ms/lote de 200 itens, cluster
+p95 2,427 ms e render p95 58,266 ms (arte original), 86,409 ms (16 MP). Pico RSS
+do processo de render: 164.892 KiB. Ver [benchmarks.md](benchmarks.md).
+Os arquivos de dois testes saíam no diretório do crate; o workflow usa agora
+caminhos absolutos. A medição original foi preservada do stdout real, sem inventar
+um artefato ausente. Cobertura é gate de linhas >=80% do domínio declarado,
+não cobertura de todo o workspace.
+
+Reexecução nativa do contrato de backup: nove testes, nenhum ignorado, 14,205 s,
+com a fixture Postgres real. Uma tentativa anterior sem carregar o ambiente da
+fixture falhou ao tentar obter a imagem padrão no sandbox; não foi contabilizada
+como teste funcional aprovado. A execução com a imagem instalada passou.
+
+ADR-018 registra a vulnerabilidade do backend SQLite opcional fora do binário e
+a auditoria do executável entregue. O backup mínimo preserva metadados das
+bibliotecas; seu build exige resolver todos os vínculos dinâmicos, sem ignorar
+uma biblioteca ausente nem esconder vulnerabilidades do scanner.
+
+## Aceites que não foram executados
+
+Não houve credenciais para disparo Telegram real, escrita/leitura R2 real,
+publicação staging ou avaliação editorial cobrada. Não houve observação real por
+24 h, dry-run por 48 h ou canário por 72 h. Backup e restauração foram testados
+com banco real e R2 simulado; não comprovam o volume, cron ou desastre da VPS.
+A aplicação completa sob carga e o SLO mensal exigem observação no destino.

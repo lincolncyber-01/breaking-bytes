@@ -6,7 +6,7 @@ RUN curl --fail --silent --show-error --location https://ftp.postgresql.org/pub/
 WORKDIR /build/postgresql-16.15
 RUN ./configure --prefix=/usr/local/pgsql --with-openssl --without-gssapi --without-ldap --without-readline --without-icu && make -j2 && make -C src/interfaces/libpq install && make -C src/bin/pg_dump install && make -C src/bin/psql install
 COPY --from=aws /usr/local/aws-cli /usr/local/aws-cli
-RUN ln -s /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws && find /usr/local/lib/python3.15/lib-dynload -name '_sqlite3*' -delete && rm -rf /usr/local/lib/python3.15/sqlite3 && mkdir -p /ops/licenses /var/lib/stories-backup && cp COPYRIGHT /ops/licenses/PostgreSQL.txt && chown 65532:65532 /var/lib/stories-backup && chmod 0700 /var/lib/stories-backup
+RUN ln -s /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws && find /usr/local/lib/python3.15/lib-dynload \( -name '_sqlite3*' -o -name '_tkinter*' \) -delete && rm -rf /usr/local/lib/python3.15/sqlite3 /usr/local/lib/python3.15/tkinter && mkdir -p /ops/licenses /var/lib/stories-backup && cp COPYRIGHT /ops/licenses/PostgreSQL.txt && chown 65532:65532 /var/lib/stories-backup && chmod 0700 /var/lib/stories-backup
 COPY deploy/backup/collect_runtime.py /build/collect_runtime.py
 RUN LD_LIBRARY_PATH=/usr/local/lib:/usr/local/pgsql/lib python3 /build/collect_runtime.py
 

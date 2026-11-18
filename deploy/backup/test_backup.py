@@ -166,15 +166,24 @@ class DockerRunner(Fake):
             return super().__call__(args, environment)
         command = ["docker", "exec", "-i", "-e", "PGHOST=127.0.0.1", "-e", "PGUSER=postgres",
                    "-e", "PGPASSWORD=integration-only", "-e", "PGDATABASE=" + environment["PGDATABASE"], self.container]
+        tool_image = os.environ.get("BACKUP_TOOL_IMAGE")
+        tool_args = args
+        if tool_image:
+            # Usa os clientes do artefato entregue, conectando ao cluster descartável.
+            command = ["docker", "run", "--rm", "--read-only", "--network", "container:" + self.container,
+                       "-i", "-e", "PGHOST=127.0.0.1", "-e", "PGUSER=postgres", "-e",
+                       "PGPASSWORD=integration-only", "-e", "PGDATABASE=" + environment["PGDATABASE"],
+                       "--entrypoint", args[0], tool_image]
+            tool_args = args[1:]
         if args[0] == "pg_dump":
-            position = args.index("--file")
-            with Path(args[position + 1]).open("wb") as output:
-                subprocess.run(command + args[:position] + args[position + 2:], stdout=output, stderr=subprocess.PIPE, check=True, timeout=60)
+            position = tool_args.index("--file")
+            with Path(tool_args[position + 1]).open("wb") as output:
+                subprocess.run(command + tool_args[:position] + tool_args[position + 2:], stdout=output, stderr=subprocess.PIPE, check=True, timeout=60)
             return b""
         if args[0] == "pg_restore":
             with Path(args[-1]).open("rb") as source:
-                return subprocess.run(command + args[:-1], stdin=source, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, timeout=60).stdout
-        return subprocess.run(command + args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, timeout=60).stdout
+                return subprocess.run(command + tool_args[:-1], stdin=source, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, timeout=60).stdout
+        return subprocess.run(command + tool_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, timeout=60).stdout
 
     def start(self, database):
         image = os.environ.get("STORIES_TEST_POSTGRES_IMAGE", "pgvector/pgvector") + ":0.8.2-pg16"

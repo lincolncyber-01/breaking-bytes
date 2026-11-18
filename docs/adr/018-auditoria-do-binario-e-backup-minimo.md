@@ -25,7 +25,8 @@ oficial com SHA-256 verificado. A imagem final distroless contém apenas Python,
 AWS CLI, clientes e suas bibliotecas dinâmicas. Não contém servidor, apt, gosu,
 Perl, LDAP ou Kerberos. Mantém TLS via OpenSSL e os metadados dpkg/copyright das
 bibliotecas copiadas para que o scanner continue identificando versões reais.
-O módulo SQLite da biblioteca padrão não participa do utilitário e é removido.
+Os módulos SQLite e Tk da biblioteca padrão não participam do utilitário e
+são removidos; o runtime não inclui banco SQLite nem interface gráfica.
 Não se ignora nenhuma vulnerabilidade alta/crítica encontrada na imagem final.
 
 ## Verificação e limites
