@@ -5,19 +5,21 @@ Não se subtraíram amostras lentas nem se simulou latência de provedores exter
 
 | Medição | Ambiente / amostras | Resultado |
 | --- | --- | --- |
-| Captura HTTP local, robots, parsing e normalização de 200 itens | CI release, 50 lotes | p50 4,483 ms; p95 4,642 ms; máximo 6,231 ms; RSS do teste 11.720 KiB |
-| Ingestão e agrupamento de 200 matérias equivalentes | CI release, Postgres real | rajada 784,561 ms; cluster p95 2,427 ms; máximo 3,686 ms |
-| Arte original 1080×1920 e JPEG90 | CI release, Xeon Platinum 8370C, 50 renders | p50 56,711 ms; p95 58,266 ms; máximo quente 59,185 ms; primeiro render 69,657 ms |
-| Composição com imagem de 16 MP | Mesmo processo release | p95 86,409 ms; pico RSS do processo 164.892 KiB, cerca de 161 MiB |
+| Captura HTTP local, robots, parsing e normalização de 200 itens | CI release, 50 lotes | p50 4,834 ms; p95 4,930 ms; máximo 7,485 ms; RSS do teste 11.612 KiB |
+| Ingestão e agrupamento de 200 matérias equivalentes | CI release, Postgres real | rajada 948,334 ms; cluster p95 3,031 ms; máximo 10,629 ms |
+| Arte original 1080×1920 e JPEG90 | CI release, AMD EPYC 7763, 50 renders | p50 52,633 ms; p95 53,957 ms; máximo quente 55,860 ms; primeiro render 64,723 ms |
+| Composição com imagem de 16 MP | Mesmo processo release | p95 81,173 ms; pico RSS do processo 164.892 KiB, cerca de 161 MiB |
 | Binário real ocioso após readiness + 1 segundo | Ambiente local, debug | RSS 38.808 KiB |
 | Captura de 200 itens | Ambiente local, debug, 50 lotes | p95 82,134 ms |
 | Clusterização de 200 matérias | Ambiente local, debug, Postgres real | p95 5,223 ms; rajada 1,480 s |
 
-Fonte CI: execução 44203846339, commit 5a014bf, job 134464595506; o JSON do
-render veio do artefato 14383247571 e os JSONs de captura/cluster do stdout real.
-Os caminhos de saída desses dois testes e da memória ociosa foram corrigidos
-para absolutos no workflow, pois Cargo executa testes no diretório do crate.
-A nova execução deve conservar os três arquivos no artefato do job.
+Fonte final CI: execução 44217875480, commit 798d812, job 134512138537,
+artefato 14389143506. Os três JSONs foram efetivamente baixados do artefato e
+ficam em `phase-6-final-release-*`. As medições anteriores, no Xeon Platinum
+8370C (execução 44203846339), permanecem como histórico em `phase-6-release-*`:
+render p95 58,266/86,409 ms, captura p95 4,642 ms e cluster p95 2,427 ms.
+Os caminhos de saída dos testes agora são absolutos ao workspace; antes, dois
+arquivos eram gravados no diretório do crate e ficaram disponíveis só no stdout.
 
 Os p95 de render e agrupamento atendem às metas de 150 ms e 50 ms no ambiente
 medido. Os resultados não demonstram prazo absoluto: a fase 4 registrou máximo

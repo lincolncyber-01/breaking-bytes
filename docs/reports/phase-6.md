@@ -169,3 +169,31 @@ indisponível. Auto prompt é explicitamente desligado, independente do ambiente
 Actionlint 1.7.12 validou os workflows; ShellCheck/Pyflakes não foram executados
 por esse comando. A versão e o checksum da publicação oficial estão fixos no CI.
 A aprovação final do scan dessa imagem minimizada permanece obrigatória.
+
+
+## Portões de segurança finais
+
+Commit 798d812: os três jobs de Segurança e operação (execução 44217875392)
+terminaram com sucesso, incluindo a imagem minimizada, seus contratos internos e
+Trivy. Os JSONs originais do artefato 14388604672 registram zero HIGH/CRITICAL e
+zero segredos em ambas as imagens. Sumário: `phase-6-final-image-scan.json`.
+Nenhuma vulnerabilidade foi ignorada; permanecem somente as três exceções
+informativas de manutenção, exatas e temporárias, do ADR-017.
+
+Fuzz 44217875610 e os jobs de cobertura/desempenho 44217875480 passaram. O job de
+qualidade já aprovou formatação, Clippy, 111 testes e release; sua construção e
+execução offline final da imagem serão registradas após a conclusão do job.
+Os últimos benchmarks release estão em benchmarks.md e nos três JSONs finais:
+render p95 53,957/81,173 ms, captura p95 4,930 ms e cluster p95 3,031 ms.
+O código e os portões locais da fase estão concluídos. Aceite operacional real
+continua pendente nos pontos externos já enumerados; a fase 7 prepara sua execução.
+
+
+## Encerramento técnico
+
+A execução CI 44217875480 no commit 798d812 terminou integralmente verde:
+qualidade, cobertura e desempenho, incluindo build da imagem e render offline
+com rootfs somente leitura e rede indisponível. Segurança 44217875392 e fuzz
+44217875610 também terminaram verdes. Os portões automáticos estão aprovados.
+As evidências externas de 24/48/72 horas e os serviços reais permanecem pendentes
+pelas razões explicitadas acima; não são apresentados como validações realizadas.

@@ -120,3 +120,10 @@ bind temporário; nenhum servidor remoto ou credencial real participa, e o scrip
 não é incorporado à imagem final. O contrato também confirma ausência dos
 módulos/pip e UUID4 válido. Todos os vínculos dinâmicos restantes continuam
 inventariados com metadados dpkg, e Trivy precisa aprovar a nova imagem.
+
+
+Resultado final: execução 44217875392, commit 798d812, aprovou ambas as imagens
+com zero HIGH/CRITICAL e zero segredos, sem exceção de CVE. Os contratos da imagem
+minimizada, a auditoria de 389 crates, o render offline e os demais checks também
+passaram. A decisão está verificada automaticamente; serviços reais seguem o
+aceite operacional documentado.
