@@ -34,6 +34,7 @@ class Fake:
         self.calls.append(args)
         if args[0] == "aws":
             assert "PGPASSWORD" not in environment
+            assert environment["AWS_CLI_AUTO_PROMPT"] == "off"
             operation = args[args.index("s3api") + 1]
             key = args[args.index("--key") + 1] if "--key" in args else None
             if operation == "put-object":

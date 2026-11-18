@@ -6,7 +6,7 @@ RUN curl --fail --silent --show-error --location https://ftp.postgresql.org/pub/
 WORKDIR /build/postgresql-16.15
 RUN ./configure --prefix=/usr/local/pgsql --with-openssl --without-gssapi --without-ldap --without-readline --without-icu && make -j2 && make -C src/interfaces/libpq install && make -C src/bin/pg_dump install && make -C src/bin/psql install
 COPY --from=aws /usr/local/aws-cli /usr/local/aws-cli
-RUN ln -s /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws && find /usr/local/lib/python3.15/lib-dynload \( -name '_sqlite3*' -o -name '_tkinter*' \) -delete && rm -rf /usr/local/lib/python3.15/sqlite3 /usr/local/lib/python3.15/tkinter && mkdir -p /ops/licenses /var/lib/stories-backup && cp COPYRIGHT /ops/licenses/PostgreSQL.txt && chown 65532:65532 /var/lib/stories-backup && chmod 0700 /var/lib/stories-backup
+RUN ln -s /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws && find /usr/local/lib/python3.15/lib-dynload \( -name '_sqlite3*' -o -name '_tkinter*' -o -name '_curses*' -o -name 'readline.*' -o -name '_uuid.*' \) -delete && rm -rf /usr/local/lib/python3.15/sqlite3 /usr/local/lib/python3.15/tkinter /usr/local/lib/python3.15/curses /usr/local/lib/python3.15/ensurepip /usr/local/lib/python3.15/site-packages/pip* /usr/local/bin/pip* && find /usr/local/aws-cli \( -type f -o -type l \) \( -name 'readline.cpython-*.so' -o -name '_uuid.cpython-*.so' -o -name 'libreadline.so.*' -o -name 'libtinfo.so.*' -o -name 'libuuid.so.*' \) -delete && mkdir -p /ops/licenses /var/lib/stories-backup && cp COPYRIGHT /ops/licenses/PostgreSQL.txt && chown 65532:65532 /var/lib/stories-backup && chmod 0700 /var/lib/stories-backup
 COPY deploy/backup/collect_runtime.py /build/collect_runtime.py
 RUN LD_LIBRARY_PATH=/usr/local/lib:/usr/local/pgsql/lib python3 /build/collect_runtime.py
 
@@ -21,3 +21,6 @@ USER 65532:65532
 ENTRYPOINT ["/usr/local/bin/python3", "-I", "/ops/backup.py"]
 # Verifica o runtime final; a inspeção na etapa de build não substitui esta execução.
 RUN ["/usr/local/bin/python3", "-I", "-c", "import ssl, subprocess; from zoneinfo import ZoneInfo; print(ZoneInfo('America/Bahia')); print(ssl.OPENSSL_VERSION); [subprocess.run([name, '--version'], check=True, timeout=10) for name in ('pg_dump', 'pg_restore', 'psql', 'aws')]"]
+
+# O contrato executa a CLI real, mas a rede do build permite somente loopback.
+RUN --network=none --mount=type=bind,source=deploy/backup/check_runtime.py,target=/check_runtime.py,ro ["/usr/local/bin/python3", "-I", "/check_runtime.py", "--check-minimal"]

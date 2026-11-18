@@ -32,6 +32,12 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Validar workflows com actionlint fixo
+        run: |
+          curl --fail --silent --show-error --location https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz -o /tmp/actionlint.tar.gz
+          echo '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  /tmp/actionlint.tar.gz' | sha256sum --check
+          tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
+          /tmp/actionlint -shellcheck= -pyflakes=
       - name: Contratos e restauração real em clusters separados
         run: BACKUP_INTEGRATION=1 python3 -m unittest discover -s deploy/backup -p test_backup.py -v
       - name: Construir ferramentas operacionais e conferir versões

@@ -149,7 +149,7 @@ class Operations:
             "AWS_SECRET_ACCESS_KEY": required("BACKUP_R2_SECRET_ACCESS_KEY"),
             "AWS_DEFAULT_REGION": "auto", "AWS_EC2_METADATA_DISABLED": "true",
             "AWS_SHARED_CREDENTIALS_FILE": "/dev/null", "AWS_CONFIG_FILE": "/dev/null",
-            "AWS_PAGER": "", "AWS_MAX_ATTEMPTS": "3", "AWS_RETRY_MODE": "standard",
+            "AWS_PAGER": "", "AWS_CLI_AUTO_PROMPT": "off", "AWS_MAX_ATTEMPTS": "3", "AWS_RETRY_MODE": "standard",
             "AWS_REQUEST_CHECKSUM_CALCULATION": "when_required",
             "AWS_RESPONSE_CHECKSUM_VALIDATION": "when_required",
         })

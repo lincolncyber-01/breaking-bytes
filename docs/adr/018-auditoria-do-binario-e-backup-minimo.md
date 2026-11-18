@@ -93,3 +93,30 @@ bibliotecas de sistema; módulos privados do AWS CLI são inspecionados no seu
 ambiente privado. O build final executa Python/SSL/fuso e todos os clientes.
 O CI 44210767519 já validou os clientes 16.15, SSL 3.5.7 e restauração real usando
 a imagem entregue; os novos gates do inventário exigem nova execução.
+
+## Minimização final dos clientes operacionais
+
+O scan 44213434400 aprovou o inventário de 389 crates e a imagem da aplicação,
+sem vulnerabilidades HIGH/CRITICAL ou segredos. A imagem de backup ainda continha
+pip 26.2.1 e seu código vendorizado, além de módulos interativos/UUID opcionais.
+O relatório marcou certifi, msgpack, setuptools e urllib3 do inventário pip;
+libncursesw6/libtinfo6 e libuuid1 receberam avisos sem correção no fornecedor.
+O resumo sanitizado conserva esses achados. Nenhum recebeu exceção.
+
+Pip, ensurepip e seu código vendorizado são removidos integralmente do runtime;
+não se remove somente o inventário para ocultar código. O utilitário operacional
+usa apenas a biblioteca padrão e os clientes já construídos. Readline, curses e
+o acelerador C opcional de UUID são removidos do Python operacional. Na
+empacotada CLI AWS, readline/_uuid e suas bibliotecas privadas também são
+removidos. Não se altera o transporte TLS nem o SDK S3. UUID4 mantém a geração
+pela fonte criptográfica os.urandom da biblioteca padrão. A funcionalidade
+interativa da CLI não integra o contrato operacional desta imagem.
+
+A distribuição oficial 2.39.6 foi inspecionada e ensaiada localmente sem esses
+módulos/bibliotecas. Um novo contrato executa a CLI real contra servidor S3
+local, confere independentemente SigV4 e os quatro métodos PUT/GET/list/DELETE,
+bytes e modelo XML. No Docker o contrato roda com --network=none e fixture por
+bind temporário; nenhum servidor remoto ou credencial real participa, e o script
+não é incorporado à imagem final. O contrato também confirma ausência dos
+módulos/pip e UUID4 válido. Todos os vínculos dinâmicos restantes continuam
+inventariados com metadados dpkg, e Trivy precisa aprovar a nova imagem.

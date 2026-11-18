@@ -5,8 +5,9 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+import zlib
 from build_binary_sbom import InventoryError, compiled_packages, inventory
-from check_binary_sbom import validate
+from check_binary_sbom import decode, validate
 
 
 class CompiledInventoryTests(unittest.TestCase):
@@ -23,7 +24,8 @@ class CompiledInventoryTests(unittest.TestCase):
             (root / 'backend/Cargo.toml').write_text('[package]\nname="libsqlite3-sys"\nversion="0.37.0"\nedition="2024"\n')
             (root / 'backend/src/lib.rs').write_text('pub fn fixture() -> bool { true }\n')
             environment = dict(os.environ, CARGO_TARGET_DIR=str(root / 'target'))
-            for active in [False, True]:
+            # O terceiro build conserva o backend no cache, mas não o compila.
+            for active in [False, True, False]:
                 command = ['cargo', 'build', '--offline', '--manifest-path', str(root / 'app/Cargo.toml'), '--message-format=json']
                 if active:
                     command += ['--features', 'libsqlite3-sys']
@@ -40,7 +42,17 @@ class CompiledInventoryTests(unittest.TestCase):
                         validate(value, locked)
                 else:
                     validate(value, locked)
-                    self.assertEqual(subprocess.check_output([str(root / 'target/debug/stories-tech')], timeout=5).strip(), b'42')
+                    binary = root / 'target/debug/stories-tech'
+                    section, audited = root / 'dependencies.zlib', root / 'audited'
+                    section.write_bytes(zlib.compress(json.dumps(value).encode()))
+                    subprocess.run(['objcopy', '--dump-section', '.text=' + str(root / 'text-before'), str(binary), str(root / 'original-copy')], check=True, timeout=10)
+                    subprocess.run(['objcopy', '--add-section', '.dep-v0=' + str(section), '--set-section-flags', '.dep-v0=readonly', str(binary), str(audited)], check=True, timeout=10)
+                    subprocess.run(['objcopy', '--dump-section', '.dep-v0=' + str(root / 'embedded'), '--dump-section', '.text=' + str(root / 'text-after'), str(audited), str(root / 'inspected-copy')], check=True, timeout=10)
+                    self.assertEqual((root / 'text-before').read_bytes(), (root / 'text-after').read_bytes())
+                    extracted = decode((root / 'embedded').read_bytes())
+                    self.assertEqual(extracted, value)
+                    validate(extracted, locked)
+                    self.assertEqual(subprocess.check_output([str(audited)], timeout=5).strip(), b'42')
 
     def test_missing_build_completion_or_artifact_outside_graph_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:

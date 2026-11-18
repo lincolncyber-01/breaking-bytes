@@ -118,3 +118,54 @@ publicação staging ou avaliação editorial cobrada. Não houve observação r
 24 h, dry-run por 48 h ou canário por 72 h. Backup e restauração foram testados
 com banco real e R2 simulado; não comprovam o volume, cron ou desastre da VPS.
 A aplicação completa sob carga e o SLO mensal exigem observação no destino.
+
+
+## Suíte final integrada
+
+O teste integrado adicional parte de RSS de contrato, normaliza, ingere, agrupa,
+redige/checa com cliente de contrato, renderiza o JPEG real, agenda e consome a
+simulação. Uma repetição da entrada conserva uma intenção e nenhum ID remoto.
+Passou em 5,076 s. A recompilação limpa terminou em 6m19s e a suíte inteira:
+
+```text
+Summary [ 143.083s] 111 tests run: 111 passed, 0 skipped
+```
+
+Clippy de todos os alvos/recursos: 3m21s sem avisos; rechecagem após formatação:
+1,17 s, sem avisos. O fmt final retornou 0. Evidências `phase-6-final-*` conservam
+as saídas reais. A limpeza deste ciclo atingiu apenas artefatos Cargo gerados no
+workspace; nenhum diretório interno Docker cuja remoção fora recusada foi tocado.
+
+No CI 44210767728, o LCOV registrou 2.409/2.619 linhas de domínio: 91,9817%.
+A memória ociosa do binário debug no runner foi 42.744 KiB; a medição nativa
+anterior de 38.808 KiB continua histórica, sem alegação de pico sob carga.
+O job operacional 134488340255 passou com clientes da imagem entregue,
+restauração em dois clusters reais, SSL/fuso, AWS CLI, Compose/Caddy/Prometheus,
+calendários e Grafana com 12 painéis. O R2 continuou simulado.
+
+O último bloqueio foi o inventário sobreaproximado do cargo-auditable estável;
+ADR-018 registra a reprodução e o exportador ancorado em compiler-artifact real.
+Seis testes Python do inventário/política passaram; o contrato do exportador
+compila dois cenários Cargo reais e conserva o backend proibido quando ativado.
+Também extrai a seção adicionada com objcopy, confirma que .text é idêntica e
+executa o binário com o inventário embutido. O novo build/audit/scan do executável
+completo ainda depende da execução do CI deste incremento.
+
+
+## Auditoria do executável aprovada; minimização do backup
+
+No commit a15e0a5, job 134497226450, o build real exportou e validou 389 crates;
+cargo-audit bin passou e Trivy da aplicação terminou com zero HIGH/CRITICAL e
+zero segredos. O inventário completo está versionado. O bloqueio restante foi
+o runtime do backup: pip vendorizado e bibliotecas opcionais interativas/UUID.
+O resumo de achados antes da minimização está nas evidências; ADR-018 explica
+por que removemos também o código e as bibliotecas, sem ignorar CVEs.
+
+O contrato adicional executou AWS CLI 2.39.6 real, sem readline/_uuid/bibliotecas
+privadas, contra HTTP local e confirmou SigV4, PUT, GET, listagem e DELETE.
+Backup/restauração nativos passaram novamente: nove testes em 12,991 s, nenhum
+ignorado. O novo Docker build repete o contrato dentro da imagem com rede externa
+indisponível. Auto prompt é explicitamente desligado, independente do ambiente.
+Actionlint 1.7.12 validou os workflows; ShellCheck/Pyflakes não foram executados
+por esse comando. A versão e o checksum da publicação oficial estão fixos no CI.
+A aprovação final do scan dessa imagem minimizada permanece obrigatória.
