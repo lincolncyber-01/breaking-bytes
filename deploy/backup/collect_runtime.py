@@ -22,7 +22,7 @@ for binary in inputs:
         library = words[2] if len(words) > 2 and words[1] == '=>' else words[0] if words else ''
         if not library.startswith('/'):
             if 'not found' in line:
-                raise RuntimeError('biblioteca do runtime ausente')
+                raise RuntimeError(f'biblioteca do runtime ausente: {binary.name}: {line.strip()}')
             continue
         library = Path(library)
         if str(library).startswith('/usr/local/'):
