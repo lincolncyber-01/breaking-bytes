@@ -11,9 +11,13 @@ inputs.extend(Path('/usr/local/lib/python3.15/lib-dynload').glob('*.so'))
 inputs.extend(Path('/usr/local/aws-cli').rglob('*.so*'))
 # As bibliotecas do AWS CLI são privadas da distribuição oficial.
 aws_directories = sorted({str(path.parent) for path in inputs if '/aws-cli/' in str(path)})
-link_environment = dict(os.environ, LD_LIBRARY_PATH=':'.join(['/usr/local/lib', '/usr/local/pgsql/lib', *aws_directories]))
+base_environment = dict(os.environ, LD_LIBRARY_PATH='/usr/local/lib:/usr/local/pgsql/lib')
+private_environment = dict(base_environment, LD_LIBRARY_PATH=':'.join(['/usr/local/lib', '/usr/local/pgsql/lib', *aws_directories]))
 packages = set()
 for binary in inputs:
+    # O bootloader AWS e os clientes usam bibliotecas de sistema. Somente os
+    # módulos carregados depois da inicialização usam o diretório privado AWS.
+    link_environment = private_environment if '/aws-cli/' in str(binary) and binary.name != 'aws' else base_environment
     result = subprocess.run(['ldd', str(binary)], capture_output=True, text=True, timeout=10, env=link_environment)
     if result.returncode:
         raise RuntimeError("não foi possível inspecionar uma biblioteca do runtime")

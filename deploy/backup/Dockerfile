@@ -19,3 +19,5 @@ COPY --chmod=0444 deploy/backup/backup.py /ops/backup.py
 ENV PATH=/usr/local/pgsql/bin:/usr/local/bin:/usr/bin:/bin LD_LIBRARY_PATH=/usr/local/lib:/usr/local/pgsql/lib PYTHONDONTWRITEBYTECODE=1 AWS_EC2_METADATA_DISABLED=true BACKUP_WORK_DIR=/var/lib/stories-backup
 USER 65532:65532
 ENTRYPOINT ["/usr/local/bin/python3", "-I", "/ops/backup.py"]
+# Verifica o runtime final; a inspeção na etapa de build não substitui esta execução.
+RUN ["/usr/local/bin/python3", "-I", "-c", "import ssl, subprocess; from zoneinfo import ZoneInfo; print(ZoneInfo('America/Bahia')); print(ssl.OPENSSL_VERSION); [subprocess.run([name, '--version'], check=True, timeout=10) for name in ('pg_dump', 'pg_restore', 'psql', 'aws')]"]
