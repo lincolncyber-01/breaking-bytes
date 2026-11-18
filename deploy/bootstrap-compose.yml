@@ -1,0 +1,19 @@
+name: breaking-bytes-bootstrap
+services:
+  provision:
+    image: ${STORIES_IMAGE:-breaking-bytes:local}
+    command: [--provision-database]
+    environment:
+      BOOTSTRAP_DATABASE_URL: ${BOOTSTRAP_DATABASE_URL:?Defina a conexão do administrador apenas para o bootstrap}
+      MIGRATION_DATABASE_PASSWORD: ${MIGRATION_DATABASE_PASSWORD:?Defina senha hexadecimal de 32 a 128 caracteres}
+      RUNTIME_DATABASE_PASSWORD: ${RUNTIME_DATABASE_PASSWORD:?Defina outra senha hexadecimal de 32 a 128 caracteres}
+      BACKUP_DATABASE_PASSWORD: ${BACKUP_DATABASE_PASSWORD:?Defina outra senha hexadecimal de 32 a 128 caracteres}
+    networks: [production]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+networks:
+  production:
+    external: true
+    name: ${STORIES_NETWORK:-breaking-bytes_default}

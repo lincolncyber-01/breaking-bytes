@@ -13,16 +13,12 @@ pub async fn run(
     store: Store,
     secrets: Secrets,
     runtime: crate::publication::PublisherRuntime,
-    mut stop: watch::Receiver<bool>,
+    stop: watch::Receiver<bool>,
 ) -> Result<()> {
-    if !settings.collection.enabled
-        && !settings.llm.enabled
-        && !settings.imaging.enabled
-        && !settings.publishing.enabled
-        && !settings.corrections.enabled
-    {
-        crate::collection::wait_for_stop(&mut stop).await;
-        return Ok(());
+    if !settings.instagram.dry_run && !store.runtime_role_safe().await? {
+        anyhow::bail!(
+            "modo real exige papel de runtime sem privilégios de migração ou alteração de auditoria"
+        );
     }
     let http = HttpClient::shared(
         &settings.collection.user_agent,
@@ -52,6 +48,13 @@ pub async fn run(
         .collect::<Vec<_>>();
     store.synchronize_sources(&origins).await?;
     let mut tasks = JoinSet::new();
+    tasks.spawn(crate::observability::run(
+        settings.clone(),
+        store.clone(),
+        http.trusted_api_client(),
+        runtime.token_state.clone(),
+        stop.clone(),
+    ));
     tasks.spawn(crate::collection::run_with_http(
         settings.clone(),
         store.clone(),
@@ -93,6 +96,7 @@ pub async fn run(
             &settings.llm.model,
             Duration::from_secs(settings.llm.timeout_s),
         )?;
+        let client = crate::observability::ObservedClient::new(client, store.clone());
         if settings.corrections.enabled {
             tasks.spawn(crate::revisions::review(
                 settings.clone(),

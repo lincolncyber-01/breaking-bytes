@@ -1,38 +1,54 @@
-# Matriz de rastreabilidade incremental
+# Matriz de rastreabilidade
 
-Estado em 17/11/2026. Esta matriz registra o que existe nas fases 1 a 4.
+Estado técnico em 18/11/2026. “Contrato” significa API simulada; Postgres e
+processos são reais. Aceites externos não foram inferidos de contratos.
 
-| Requisito do blueprint | Implementação | Verificação / estado |
+| Requisito do blueprint | Onde foi implementado | Como foi verificado / limite |
 | --- | --- | --- |
-| Monólito modular, um binário | Cargo.toml, crates/app | Clippy e build nativo |
-| Rust estável, edição atual, lock | rust-toolchain.toml, Cargo.lock | Rust 1.100.0, edição 2024 |
-| Estados de evento | crates/core, trigger events_state_guard | Unitários, propriedades e Postgres |
-| Modelo de dados e vector(384) | migrations/0001_foundation.sql | Migrations repetidas e extensão real |
-| Outbox transacional | Store::create_event, Store::transition | Rollback de evento quando job conflita |
-| Lease, SKIP LOCKED, retomada | Store::claim, complete, renew | Claims concorrentes, recuperação e fencing |
-| Backoff com jitter e dead letter | Store::retry, retry_delay | Adiamento real e esgotamento de tentativas |
-| Chave única de publicação | PublicationKey, publications | Reservas concorrentes no Postgres |
-| Config TOML e ambiente | crates/config | Limites, desconhecidos, segredos e dry_run |
-| Segredos fora dos logs | Secret, erros sanitizados | Debug e logs reais do processo |
-| Liveness e readiness | crates/app | Router e binário real por TCP |
-| Admin protegida e kill switch | /admin/status, /admin/pause | Autenticação, corpo limitado e pausa persistida |
-| Shutdown gracioso | app::main | Processo recebe SIGTERM e encerra com sucesso |
-| Formatação, Clippy, nextest | CI e comandos locais | Resultados em reports/phase-1.md |
-| Cobertura de domínio >=80% | cargo-llvm-cov | Core, normalize, cluster, verify, editorial e imaging: 92,03% de linhas na fase 4 |
-| CI remoto verde | .github/workflows/ci.yml | Fases 1 e 2 aprovadas; fase 3 nos Checks da PR |
-| Container mínimo e não root | deploy/Dockerfile, Compose | Build da fase 1 aprovado no CI |
-| Feeds, SSRF, parsers, clusters | crates/collectors, normalize, cluster; store/collection | Contratos, propriedades e Postgres; embeddings/WebSub pendentes |
-| Coleta real por 24 horas | Fase 2 | Não executada |
-| Verificação N1/N2/N3 | crates/verify, collectors::confirm, store/editorial | Datas, origens, sinais e promoção N3 em testes/propriedades/Postgres |
-| Redação e contrato LLM | crates/editorial, app/editorial | Schema, prompts separados e contratos HTTP simulados |
-| Reescritas e outbox de render | migration 0003, store/editorial | Limite de duas, fencing, versões concorrentes e CHECKED+outbox atômicos |
-| Fidelidade e prompt injection | Editorial, fixtures/evaluation.json, --evaluate-editorial | Rejeições locais e separação de prompts testadas; fidelidade real e revisão humana pendentes |
-| Imagens, Inter, render, snapshots | crates/imaging, assets/fonts, tests/golden | MIME, pixels, EXIF, licenças e seis referências sem diferença; detecção visual automática substituída por revisão humana (ADR-009) |
-| Artefato durável e outbox schedule | app/imaging, store/imaging, migration 0004 | Postgres real: fencing, rollback, retomada e invalidação após render |
-| Benchmark de render e memória | imaging/benches, examples/benchmark | p95 76,5 ms / 85,2 ms em 16 MP; pico 159 MiB; máximo 413,8 ms; escopo CPU isolado |
-| Detecção e memória da aplicação completa | Fases 2 e 6 | Coleta real, rede, LLM e carga completa ainda não medidos |
-| R2, Meta, reconciliação e caos | Fase 5 | Não implementado; ADR-002 registra limites |
-| Métricas, alertas e backups | Fase 6 | Não implementado |
-| Audit, deny, fuzz e Trivy | Fase 6 | Ainda não configurados/executados |
-| Dry-run completo por 48 horas | Fase 6 | Não executado |
-| Canário por 3 dias | Fase 7 | Não executado |
+| Workspace exato, um binário, Rust atual | Cargo.toml, rust-toolchain.toml, crates/app | 12 crates, Rust 1.100.0/edição 2024, builds e Clippy |
+| Versões fixas, APIs de crates | Cargo.lock e dependências exatas | Compilação locked; CI e ferramentas também fixos |
+| Erros tipados e produção sem panic | thiserror em bibliotecas, anyhow no app, lints workspace | Clippy all-targets/all-features com warnings negados |
+| Tokio, CPU fora do runtime, limites e timeouts | collectors, imaging, app workers | Spawn blocking, semáforos/canais limitados; contratos de timeout/tamanho |
+| Modelo Postgres/pgvector e migrations | migrations/0001–0009, store | Banco real, migrations repetidas, owner sem superuser |
+| Máquina de estados e motivo terminal | core, triggers SQL | Propriedades e integração Postgres |
+| Outbox, lease, SKIP LOCKED e fencing | store/lib.rs e módulos | Claims concorrentes, rollback, queda, lease vencido |
+| Retry/backoff/jitter/dead letter | store, collectors, publisher | Propriedades, Retry-After e retomadas reais |
+| Camadas A/B/C/D e confirmação | config/sources.toml, collectors, verify | RSS/Atom, sitemap, GitHub, SEC, HN, Statuspage por contrato |
+| Robots, datas reais, canonicals e validadores | collectors/http.rs, normalize, store/collection | XML/HTML/HTTP simulados, SSRF, transação do cursor |
+| Coleta 24 h real sem duplicatas | Procedimento no runbook | Não executada; exige destino e revisão semântica |
+| WebSub e demais redes sociais | ADR-006 | WebSub não implementado; polling é fallback; Reddit/X/Bluesky e agências exigem integração/licença |
+| Deduplicação URL/hash/entidades | normalize, cluster, store/collection | Propriedades, concorrência e rajada de 200 itens |
+| Embeddings locais 384 dimensões | vector(384) no schema, ADR-005 | Backend fastembed não implementado; fallback explícito, não prova paráfrases |
+| N1/N2/N3 e origens independentes | verify, store/editorial | Propriedades, fonte primária, rumores, datas e N3 promovido em Postgres |
+| JSON editorial, prompt como dado, PT-BR | editorial, schemas/prompts | Schema/determinístico/contratos; corpus sintético de 8 casos |
+| Segunda checagem e duas reescritas | app/editorial, store/editorial | Rejeições, fencing/revisão e orçamento durável |
+| Fidelidade real zero afirmações sem fonte | --evaluate-editorial e runbook | Chave/modelo/corpus real/revisão humana pendentes |
+| Imagem: licença, MIME, bytes e pixels | imaging, config/images.json | Decodificação, EXIF, decompression bomb, manifesto vinculado ao hash |
+| Marca d'água/relevância | ADR-009 e manifesto revisado | Revisão humana conservadora; detector automático não implementado |
+| Template visual exato e Inter | imaging, assets/fonts, tests/golden | Seis golden files sem diferença; JPEG de exemplo versionado |
+| Texto sem corte e redução <=10% | imaging/layout e app/imaging | Limites e reescrita com contador global |
+| Artefato durável/revisão/outbox | store/imaging, app/imaging | Arquivo sincronizado, fencing, rollback e invalidação |
+| Render <150 ms e cluster <50 ms | benches, examples/benchmark, testes de rajada | Release CI: render p95 58,266/86,409 ms; cluster p95 2,427 ms |
+| Detecção <2 min/publicação <5 min | Métricas detect_latency/detect_to_publish | Captura de contrato p95 4,642 ms/lote; SLO real pendente |
+| Memória normal <300 MB | Limite Compose, métricas RSS e benches | Render isolado pico ~161 MiB; app debug ocioso 38.808 KiB; carga completa pendente |
+| Prioridade, cadência e teto móvel | scheduler, store/scheduling, publishing | Propriedades/banco, pesos configuráveis, cota atual e reservas |
+| Calibração impacto/alcance/urgência | ADR-011 | Sinais conservadores explícitos; calibração real pendente |
+| Instagram Stories/cota/permissões | publisher/graph, ADR-002 | Documentação Meta oficial e contrato HTTP; cota/documentação divergentes, runtime consulta conta |
+| R2 S3 e URL curta/limpeza | publisher/storage, app/publication, ADR-011 | SigV4 e objetos por contrato; R2 real pendente |
+| Intenção única e reconciliação | store/publication, publisher, ADR-010/015 | Postgres, barrier-before-POST, retomada e resolução atestada |
+| Caos: queda entre publish e commit | app/tests/publication_chaos.rs e testes operacionais | SIGKILL em processo real; um POST/efeito na API simulada; intenção preservada |
+| Zero duplicatas/perdas remotas | Protocolo conservador, ADR-010 | API não dá transação distribuída nem correlação suficiente; ambiguidades bloqueadas |
+| Token válido/renovação/alerta | app/token, publisher/token, ADR-012/013 | Facebook inspection, recibo Instagram Login, contratos; rotação externa manual |
+| Reconsulta e correções 24/72 h | app/revisions, store/revisions, ADR-014 | Baseline congelado, revisão, quotes, nova outbox; contrato/PG |
+| Kill switch, blocklist e resolução | app/admin, store/operations | Bearer, pausa, concorrência, recibo UUID e auditoria |
+| Logs/segredos/SSRF/prompt injection | core::Secret, collectors/http, editorial | Logs do processo, corpos remotos sanitizados, testes de redes e dados hostis |
+| Menor privilégio e auditoria íntegra | store/security, migration 0009 | Papéis runtime/backup/owner reais; runtime sem DDL/alterar auditoria |
+| Métricas/painel/alertas | app/observability, store/telemetry, deploy/monitoring | Exporter e Telegram de contrato; disparo Telegram real pendente |
+| Backup noturno 7 dias/4 semanas | deploy/backup e systemd | Retenção, limites, checksums PUT/GET; R2 simulado |
+| Restauração mensal isolada | backup.py restore-check e restore-compose | Dois clusters reais, identidade distinta, dados e hold de 24 h |
+| Testes/coverage/fuzz | .github/workflows/ci.yml e fuzz.yml | 110 Rust passando, domínio >=80%, 3 parsers 20 s/alvo |
+| Supply chain e imagens | security.yml, deny.toml, tools, ADR-017/018 | Gates reais, inventário do binário e Trivy; resultados finais no relatório da fase 6 |
+| Docker/Compose/proxy/logs/limites | deploy/* | CI constrói/renderiza sem rede, valida Compose/Caddy/Prometheus/calendários |
+| CI/CD versionado, rollback e canário | Fase 7 | Implementação/relatório da fase 7 em seguida; nenhum deploy real |
+| Disponibilidade 99,5% mensal | Health, restart, métricas e runbook | Exige janela mensal; não demonstrada por teste curto |
+| Dry-run 48 h e canário 72 h/10 por dia | Aceites externos da fase 7 | Não executados; dependem de configuração e passagem real do tempo |

@@ -1,7 +1,9 @@
 # Runbook operacional
 
-Escopo atual: fundação, captura, editorial, renderização e publicação em dry_run;
-clientes Meta/R2 e correções disponíveis para validação em staging. A fase 5 segue aberta.
+Escopo: pipeline implementado até publicação, reconciliação e operação. Consulte
+[matriz de requisitos](requirements.md) e [relatório da fase 6](reports/phase-6.md)
+para separar gates automáticos de aceites externos. Credenciais, observação
+contínua e staging/canário reais continuam pendentes.
 
 ## Inicialização e migrations
 
@@ -63,14 +65,14 @@ URL não comprova ausência de duplicatas semânticas. Nenhum Story será public
 
 ## GitHub e limites da validação
 
-Use uma conexão GitHub com escrita de conteúdo e workflows no repositório.
-Quando houver várias contas conectadas, selecione explicitamente a conta do
-proprietário lincolncyber-01. Envie mudanças por branch e PR, preservando revisão
-antes de integrar à principal. A fundação está integrada à main. A captura está na branch codex/phase-2-collection.
+O trabalho está em PRs incrementais empilhados no repositório do proprietário.
+Revise e integre na ordem das dependências; a principal contém a fundação.
+Os checks de cada PR registram o commit efetivamente validado. Não atribua ao
+commit seguinte resultados anteriores quando houver mudanças relevantes.
 
-Proteção de branch, CI remoto, credenciais externas, backups, alertas, publicação
-de teste, caos, snapshots, benchmarks e canário ainda precisam dos marcos das
-fases seguintes. Esta fundação não deve ser anunciada como pronta para produção.
+Não exponha a Admin API/metrics sem proteção de rede. Não envie segredos em
+comentários de PR, relatórios, diagnósticos ou artefatos. Use os procedimentos
+específicos de tokens, backup e reconciliação dos guias vinculados.
 
 
 ## Verificação e redação
@@ -133,8 +135,10 @@ Os JPEGs usam event_id/revision/hash.jpg. rendered_stories contém hash, dimens�
 layout, proveniência e dry_run. Estado RENDERED e outbox schedule só são gravados
 após sync do arquivo e diretório. Uma queda antes do commit pode deixar arquivo
 órfão; ela não autoriza uma publicação. A retomada usa novo lease e o mesmo hash.
-Não apague arquivos referenciados no banco. Limpeza automática por retenção ainda
-será implementada na fase 6.
+Não apague arquivos referenciados no banco. O volume local guarda os artefatos para
+auditoria e retomada; acompanhe seu espaço. A limpeza R2 usa a publicação confirmada,
+sem remover imagens de intenções incertas. Retenção local exige política explícita
+do operador; o processo não remove evidências de publicação automaticamente.
 
 O texto que não couber após redução de 10% ganha substituto para nova verificação
 e redação mais curta. O contador é preservado; no esgotamento, a razão é
@@ -148,10 +152,11 @@ revisão antes de avançar. Não consuma essa outbox com scripts genéricos.
 
 Os benchmarks da fase 4 medem o renderizador isolado. O p95 passou no ambiente
 medido, mas houve máximo de 413,8 ms; valide a VPS final e monitore percentis.
-Ainda faltam memória da aplicação inteira, detecção real, R2, Meta e caos de
-publicação. Nenhum resultado desta fase comprova publicação real.
+O teste de caos da fase 5 passou com processos reais e Meta simulada. Memória
+sob carga completa, detecção real, R2 e Meta reais continuam sem aceite.
+Consulte reports/benchmarks.md para medições atuais e seus limites.
 
-## Publicação em andamento
+## Publicação e reconciliação
 
 Leia docs/publication.md antes de alterar o modo. Aplique a migration 0005.
 As intenções uncertain e published_unresolved exigem acompanhamento; não apague
@@ -165,7 +170,8 @@ A readiness verifica vencimento e idade dos metadados, além do preflight. O sta
 administrativo identifica tipo, origem e falha sem revelar o segredo. Em
 rotation_required ou refresh_uncertain, obtenha uma credencial pelo fluxo Meta,
 atualize o ambiente e recrie o processo; não remova a barreira por SQL. Alertas
-locais são deduplicados; entrega externa ainda depende da fase 6.
+locais são deduplicados; entrega Telegram está em docs/observability.md e requer
+habilitação explícita e disparo real pelo proprietário.
 
 ## Reconsulta e correção automática
 
@@ -203,3 +209,28 @@ incerto. Ao mudar entre dry_run e real, o acompanhamento antigo fica adiado e
 nenhum candidato de simulação é promovido. Valide a classificação semântica em
 corpus real antes de habilitar publicação real: citações literais não provam,
 por si só, a relação entre uma nota e o Story anterior.
+
+## Operação endurecida
+
+Aplique 0009 e leia [observability.md](observability.md), [backups.md](backups.md) e
+ADR-016. Configure primeiro os papéis do banco pelo bootstrap. O modo real recusa
+papel de runtime capaz de migrar ou alterar auditoria; migrations usam
+MIGRATION_DATABASE_URL separada. Não forneça a conexão do administrador ao app.
+
+Ative e teste Telegram no ambiente de staging. /metrics permanece privado;
+/admin/stats exige Bearer. Use o painel para diferenciar fila acumulada, falhas
+Graph, rejeição factual, ausência de fonte e indisponibilidade de cota.
+A cota desconhecida não autoriza publicação. Quando houver unsupported_text,
+inspecione audit_log/factcheck_json do ID indicado e ajuste o prompt/corpus;
+não remova o portão de checagem para liberar a fila.
+
+Confira diariamente operational_backups e mensalmente operational_restore_checks.
+Após falha de backup, preserve versões anteriores e valide rede, credencial,
+quota de disco e limites do dump. Não imprima ambientes, perfis AWS ou stderr bruto
+em chamados. Procedimento completo de desastre, quarentena e reconciliação está
+em backups.md. O teste mensal não inicia o pipeline contra o snapshot.
+
+Os timers dependem do provedor de segredos para reapresentar o ambiente em cada
+boot da VPS. Teste esse caminho com uma reinicialização controlada em staging.
+Sem ambiente completo o job falha fechado; os alertas de atraso continuam ativos
+na aplicação, quando configurados. Nunca use down --volumes no projeto de produção.

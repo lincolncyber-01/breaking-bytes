@@ -46,6 +46,7 @@ async fn health_auth_pause_and_fail_closed_readiness() -> Result<(), Box<dyn std
         _ => None,
     })?;
     let state = AppState {
+        daily_cap: 40,
         token_state: std::sync::Arc::new(stories_app::token::TokenState::default()),
         publishing_enabled: true,
         corrections_enabled: false,
@@ -59,13 +60,41 @@ async fn health_auth_pause_and_fail_closed_readiness() -> Result<(), Box<dyn std
         collection_enabled: false,
     };
     let app = router(state.clone());
-    for path in ["/health/live", "/health/ready"] {
+    for path in ["/health/live", "/health/ready", "/metrics"] {
         let response = app
             .clone()
             .oneshot(Request::builder().uri(path).body(Body::empty())?)
             .await?;
         assert_eq!(response.status(), StatusCode::OK);
     }
+    let stats = app
+        .clone()
+        .oneshot(Request::builder().uri("/admin/stats").body(Body::empty())?)
+        .await?;
+    assert_eq!(stats.status(), StatusCode::UNAUTHORIZED);
+    let stats = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/admin/stats")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())?,
+        )
+        .await?;
+    assert_eq!(stats.status(), StatusCode::OK);
+    let status = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/admin/status")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())?,
+        )
+        .await?;
+    assert_eq!(status.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(status.into_body(), 16384).await?;
+    let status: serde_json::Value = serde_json::from_slice(&bytes)?;
+    assert_eq!(status["daily_cap"], 40);
     for value in [None, Some("Bearer errado"), Some("Basic dGVzdA==")] {
         let mut request = Request::builder().uri("/admin/status");
         if let Some(value) = value {
@@ -166,6 +195,23 @@ async fn exercise_binary(
         }
     })
     .await??;
+    if let Some(destination) = std::env::var_os("STORIES_IDLE_MEMORY_BENCHMARK") {
+        sleep(Duration::from_secs(1)).await;
+        let status = tokio::fs::read_to_string(format!("/proc/{pid}/status")).await?;
+        let value = |key: &str| {
+            status.lines().find_map(|line| {
+                line.strip_prefix(key)
+                    .and_then(|s| s.split_whitespace().next())
+                    .and_then(|s| s.parse::<u64>().ok())
+            })
+        };
+        let report = serde_json::json!({"scope":"Binário real ocioso após readiness em dry_run, com renderizador e observabilidade; sem carga editorial ou APIs reais","profile":if cfg!(debug_assertions){"debug"}else{"release"},"rss_kib":value("VmRSS:"),"peak_rss_kib":value("VmHWM:")});
+        let destination = std::path::Path::new(&destination);
+        if let Some(parent) = destination.parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+        tokio::fs::write(destination, serde_json::to_vec_pretty(&report)?).await?;
+    }
     let killed = timeout(
         Duration::from_secs(2),
         Command::new("kill")

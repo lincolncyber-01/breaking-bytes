@@ -18,12 +18,17 @@ mod operations;
 mod publication;
 pub use operations::{ResolutionResult, ResolutionWitness, RulePage, RuleRecord};
 mod revisions;
+mod security;
+mod telemetry;
 mod token;
 pub use collection::{CollectionStats, SourceState};
 pub use editorial::{EditorialContext, EditorialOutcome, EditorialStep};
 pub use imaging::{RenderArtifact, RenderDisposition};
 pub use publication::{Publication, PublicationArtifact, PublicationPolicy, PublicationStep};
 pub use revisions::{ReviewRecord, SourceObservation, WatchContext, WatchPolicy, WatchSource};
+pub use telemetry::{
+    AlertCondition, AlertLease, Metric, MetricRow, OperationalSnapshot, SourceHealth,
+};
 pub use token::{TokenRecord, TokenRefreshLease};
 
 static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("../../migrations");

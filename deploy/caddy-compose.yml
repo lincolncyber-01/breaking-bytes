@@ -1,0 +1,27 @@
+services:
+  caddy:
+    image: caddy:2.11.9@sha256:4851e54a46b206517c574821bb5cc67f170d2156041e9fbc4c9193b45e84a75b
+    user: '65532:65532'
+    environment:
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:?Defina o domínio público da Admin API}
+      XDG_DATA_HOME: /data
+      XDG_CONFIG_HOME: /config
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: '0'
+    ports: ['80:80', '443:443']
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 64m
+    cpus: 0.10
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}
+volumes:
+  caddy-data:
+  caddy-config:

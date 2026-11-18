@@ -1,0 +1,17 @@
+[
+  {
+    "target": "breaking-bytes:security (debian 12.15)",
+    "vulnerabilities": [
+      {
+        "VulnerabilityID": "CVE-2026-84782",
+        "PkgName": "libssl3",
+        "InstalledVersion": "3.0.20-1~deb12u2",
+        "FixedVersion": "3.0.22-1~deb12u2",
+        "Severity": "HIGH",
+        "Title": "openssl: compat-openssl: openssl: Information disclosure via DTLS handshake retransmission",
+        "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-84782"
+      }
+    ],
+    "secret_count": 0
+  }
+]

@@ -1,0 +1,21 @@
+[Unit]
+Description=Backup PostgreSQL verificado no R2
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+StartLimitIntervalSec=3600
+StartLimitBurst=3
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/breaking-bytes
+PassEnvironment=BACKUP_IMAGE BACKUP_DATABASE_URL BACKUP_R2_ACCOUNT_ID BACKUP_R2_ACCESS_KEY_ID BACKUP_R2_SECRET_ACCESS_KEY BACKUP_BUCKET BACKUP_MAX_BYTES STORIES_NETWORK
+ExecStart=/usr/bin/docker compose -f deploy/backup/compose.yml run --rm --no-deps backup
+TimeoutStartSec=20min
+Restart=on-failure
+RestartSec=300
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/run

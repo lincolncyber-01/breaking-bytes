@@ -1,0 +1,119 @@
+{
+  "trivy-app.json": {
+    "findings": [],
+    "secrets": 0
+  },
+  "trivy-backup.json": {
+    "findings": [
+      {
+        "VulnerabilityID": "CVE-2025-69720",
+        "PkgName": "libncursesw6",
+        "InstalledVersion": "6.5+20250216-2",
+        "FixedVersion": null,
+        "Severity": "HIGH",
+        "Status": "affected",
+        "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2025-69720"
+      },
+      {
+        "VulnerabilityID": "CVE-2025-69720",
+        "PkgName": "libtinfo6",
+        "InstalledVersion": "6.5+20250216-2",
+        "FixedVersion": null,
+        "Severity": "HIGH",
+        "Status": "affected",
+        "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2025-69720"
+      },
+      {
+        "VulnerabilityID": "CVE-2026-76642",
+        "PkgName": "libuuid1",
+        "InstalledVersion": "2.41.5-0+deb13u1",
+        "FixedVersion": null,
+        "Severity": "HIGH",
+        "Status": "affected",
+        "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-76642"
+      },
+      {
+        "VulnerabilityID": "CVE-2026-78408",
+        "PkgName": "libuuid1",
+        "InstalledVersion": "2.41.5-0+deb13u1",
+        "FixedVersion": null,
+        "Severity": "HIGH",
+        "Status": "affected",
+        "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-78408"
+      },
+      {
+        "VulnerabilityID": "CVE-2026-78409",
+        "PkgName": "libuuid1",
+        "InstalledVersion": "2.41.5-0+deb13u1",
+        "FixedVersion": null,
+        "Severity": "HIGH",
+        "Status": "affected",
+        "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-78409"
+      },
+      {
+        "VulnerabilityID": "CVE-2026-78410",
+        "PkgName": "libuuid1",
+        "InstalledVersion": "2.41.5-0+deb13u1",
+        "FixedVersion": null,
+        "Severity": "HIGH",
+        "Status": "affected",
+        "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-78410"
+      },
+      {
+        "VulnerabilityID": "GHSA-6q48-6c7w-9gw2",
+        "PkgName": "certifi",
+        "InstalledVersion": "2026.6.17",
+        "FixedVersion": "2026.10.18",
+        "Severity": "CRITICAL",
+        "Status": "fixed",
+        "PrimaryURL": "https://github.com/advisories/GHSA-6q48-6c7w-9gw2"
+      },
+      {
+        "VulnerabilityID": "CVE-2026-114613",
+        "PkgName": "msgpack",
+        "InstalledVersion": "1.1.2",
+        "FixedVersion": "1.2.3",
+        "Severity": "HIGH",
+        "Status": "fixed",
+        "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-114613"
+      },
+      {
+        "VulnerabilityID": "GHSA-6v7p-g79w-8964",
+        "PkgName": "msgpack",
+        "InstalledVersion": "1.1.2",
+        "FixedVersion": "1.2.1",
+        "Severity": "HIGH",
+        "Status": "fixed",
+        "PrimaryURL": "https://github.com/advisories/GHSA-6v7p-g79w-8964"
+      },
+      {
+        "VulnerabilityID": "CVE-2025-47273",
+        "PkgName": "setuptools",
+        "InstalledVersion": "70.3.0",
+        "FixedVersion": "78.1.1",
+        "Severity": "HIGH",
+        "Status": "fixed",
+        "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2025-47273"
+      },
+      {
+        "VulnerabilityID": "CVE-2026-97687",
+        "PkgName": "urllib3",
+        "InstalledVersion": "2.7.0",
+        "FixedVersion": "2.8.0",
+        "Severity": "HIGH",
+        "Status": "fixed",
+        "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-97687"
+      },
+      {
+        "VulnerabilityID": "CVE-2026-97689",
+        "PkgName": "urllib3",
+        "InstalledVersion": "2.7.0",
+        "FixedVersion": "2.8.0",
+        "Severity": "HIGH",
+        "Status": "fixed",
+        "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-97689"
+      }
+    ],
+    "secrets": 0
+  }
+}

@@ -1,0 +1,62 @@
+name: breaking-bytes-restore-check
+services:
+  restore-db:
+    image: pgvector/pgvector:0.8.2-pg16@sha256:00ba258a66dac104fd5171074a0084462a64a1369d8513f3d0a634e2f24d15bc
+    environment:
+      POSTGRES_DB: stories_restore_check
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${RESTORE_DATABASE_PASSWORD:?Defina uma senha distinta para o cluster descartável}
+    volumes:
+      - restore-data:/var/lib/postgresql/data
+    networks: [isolated]
+    mem_limit: 384m
+    cpus: 0.50
+    healthcheck:
+      test: [CMD, pg_isready, -h, 127.0.0.1, -U, postgres, -d, stories_restore_check]
+      interval: 3s
+      timeout: 2s
+      retries: 30
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+  restore-check:
+    image: ${BACKUP_IMAGE:-breaking-bytes-backup:local}
+    command: [restore-check]
+    environment:
+      BACKUP_DATABASE_URL: ${BACKUP_DATABASE_URL:?Defina a conexão de leitura e registro do teste}
+      RESTORE_DATABASE_URL: ${RESTORE_DATABASE_URL:?Defina a conexão com restore-db e banco stories_restore_check}
+      BACKUP_R2_ACCOUNT_ID: ${BACKUP_R2_ACCOUNT_ID:?Defina a conta R2 de backups}
+      BACKUP_R2_ACCESS_KEY_ID: ${BACKUP_R2_ACCESS_KEY_ID:?Defina a credencial restrita ao bucket de backups}
+      BACKUP_R2_SECRET_ACCESS_KEY: ${BACKUP_R2_SECRET_ACCESS_KEY:?Defina o segredo R2 de backups}
+      BACKUP_BUCKET: ${BACKUP_BUCKET:-stories-backups}
+      BACKUP_MAX_BYTES: ${BACKUP_MAX_BYTES:-536870912}
+      BACKUP_TIMEOUT_S: 900
+    depends_on:
+      restore-db:
+        condition: service_healthy
+    volumes:
+      - backup-work:/var/lib/stories-backup
+    networks: [isolated, production]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 384m
+    cpus: 0.50
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+volumes:
+  restore-data:
+  backup-work:
+    external: true
+    name: breaking-bytes-backup-work
+networks:
+  isolated:
+    internal: true
+  production:
+    external: true
+    name: ${STORIES_NETWORK:-breaking-bytes_default}

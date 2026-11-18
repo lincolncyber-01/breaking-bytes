@@ -11,6 +11,9 @@ name = "stories-tech"
 path = "src/main.rs"
 
 [dependencies]
+metrics.workspace = true
+metrics-exporter-prometheus.workspace = true
+reqwest.workspace = true
 stories-scheduler.workspace = true
 stories-publisher.workspace = true
 anyhow.workspace = true
@@ -36,7 +39,6 @@ tracing-subscriber.workspace = true
 
 [dev-dependencies]
 stories-publisher = { workspace = true, features = ["test-support"] }
-reqwest.workspace = true
 wiremock.workspace = true
 http-body-util.workspace = true
 sqlx.workspace = true

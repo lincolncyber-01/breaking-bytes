@@ -1,0 +1,11 @@
+{
+  "burst_seconds": 0.948334455,
+  "cluster_max_ms": 10.628870000000001,
+  "cluster_p50_ms": 2.5457769999999997,
+  "cluster_p95_ms": 3.030662,
+  "items": 200,
+  "passed": true,
+  "profile": "release",
+  "scope": "200 artigos normalizados: ingestão, deduplicação e clusterização transacional com Postgres real; sem feeds públicos ou LLM",
+  "target_cluster_p95_ms": 50
+}

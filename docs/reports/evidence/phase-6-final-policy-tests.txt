@@ -1,0 +1,11 @@
+test_embedded_data_has_one_product_root_and_only_locked_dependencies (test_binary_sbom.SbomTests.test_embedded_data_has_one_product_root_and_only_locked_dependencies) ... ok
+test_sqlite_or_incomplete_compressed_data_cannot_bypass_the_gate (test_binary_sbom.SbomTests.test_sqlite_or_incomplete_compressed_data_cannot_bypass_the_gate) ... ok
+test_missing_build_completion_or_artifact_outside_graph_is_rejected (test_build_binary_sbom.CompiledInventoryTests.test_missing_build_completion_or_artifact_outside_graph_is_rejected) ... ok
+test_real_cargo_artifacts_exclude_inactive_optional_and_keep_activated_backend (test_build_binary_sbom.CompiledInventoryTests.test_real_cargo_artifacts_exclude_inactive_optional_and_keep_activated_backend) ... ok
+test_cve_unsoundness_patch_or_identity_change_revokes_exception (test_security_exceptions.ExceptionTests.test_cve_unsoundness_patch_or_identity_change_revokes_exception) ... ok
+test_maintenance_without_patch_is_limited_to_reviewed_version_and_date (test_security_exceptions.ExceptionTests.test_maintenance_without_patch_is_limited_to_reviewed_version_and_date) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 1.263s
+
+OK

@@ -1,0 +1,18 @@
+{
+  "architecture": "x86_64",
+  "cold_render_ms": 69.656685,
+  "cpu": "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz",
+  "initialization_ms": 0.9830819999999999,
+  "jpeg_bytes": 131631,
+  "passed": true,
+  "peak_rss_kib": 164892,
+  "profile": "release",
+  "render_16mp_p95_ms": 86.40858899999999,
+  "render_max_ms": 59.184683,
+  "render_p50_ms": 56.710775,
+  "render_p95_ms": 58.266332999999996,
+  "samples": 50,
+  "scope": "CPU: arte original, shaping, resize, composi\u00e7\u00e3o e JPEG90; sem rede/LLM",
+  "target_render_ms": 150,
+  "target_rss_mib": 300
+}

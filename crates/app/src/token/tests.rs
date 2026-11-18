@@ -118,8 +118,17 @@ async fn token_monitor_refresh_fencing_restart_rotation_and_alerts_use_postgres(
         "ADMIN_TOKEN" => Some(admin.clone()),
         _ => None,
     })?;
+    store
+        .provision_roles(&"a".repeat(32), &"b".repeat(32), &"c".repeat(32))
+        .await?;
+    let runtime_url = url.replace(
+        "postgres:integration-only@",
+        &format!("stories_runtime:{}@", "b".repeat(32)),
+    );
+    let runtime = Store::connect(&runtime_url, 2, std::time::Duration::from_secs(10)).await?;
     let app = crate::router(crate::AppState {
-        store: store.clone(),
+        daily_cap: 40,
+        store: runtime.clone(),
         admin_token: secrets.admin_token,
         dry_run: false,
         collection_enabled: false,
@@ -305,6 +314,7 @@ async fn token_monitor_refresh_fencing_restart_rotation_and_alerts_use_postgres(
         Some(TokenFailure::RefreshUncertain)
     );
     server.verify().await;
+    runtime.close().await;
     store.close().await;
     Ok(())
 }

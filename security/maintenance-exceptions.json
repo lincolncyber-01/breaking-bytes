@@ -1,0 +1,29 @@
+[
+  {
+    "id": "RUSTSEC-2026-0192",
+    "package": "ttf-parser",
+    "versions": ["0.25.1"],
+    "kind": "unmaintained",
+    "expires": "2026-12-17",
+    "dev_only": false,
+    "reason": "ADR-017: fontdb/cosmic-text usam o parser somente para a Inter embutida e revisada; alternativa oficial skrifa exige migração upstream. Sem versão corrigida."
+  },
+  {
+    "id": "RUSTSEC-2026-0440",
+    "package": "astral-tokio-tar",
+    "versions": ["0.6.4"],
+    "kind": "unmaintained",
+    "expires": "2026-12-17",
+    "dev_only": true,
+    "reason": "ADR-017: dependência de desenvolvimento de testcontainers/bollard, ausente da imagem de produção; alternativa oficial tar-codec ainda depende de adaptação upstream."
+  },
+  {
+    "id": "RUSTSEC-2026-0543",
+    "package": "chrono",
+    "versions": ["0.4.45"],
+    "kind": "unmaintained",
+    "expires": "2026-12-17",
+    "dev_only": false,
+    "reason": "ADR-017: feed-rs e a integração SQLx selecionada expõem Chrono; alternativas oficiais Jiff/time exigem migração conjunta de contratos. Mantida a versão fixa, sem vulnerabilidade conhecida neste aviso."
+  }
+]

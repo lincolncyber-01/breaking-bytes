@@ -1,6 +1,7 @@
 name: CI
 on:
   push:
+    branches: [main]
   pull_request:
 permissions:
   contents: read
@@ -31,6 +32,12 @@ jobs:
           cargo check --workspace --all-targets --all-features --locked
           cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
       - run: cargo nextest run --workspace --all-features --locked
+        env:
+          STORIES_IDLE_MEMORY_BENCHMARK: ${{ github.workspace }}/artifacts/app-idle-memory.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: app-idle-memory
+          path: artifacts/app-idle-memory.json
       - name: Compilar release
         run: cargo build --release --locked
       - name: Construir imagem
@@ -45,16 +52,27 @@ jobs:
       - run: rustup toolchain install 1.100.0 --profile minimal --component llvm-tools-preview
       - run: cargo install cargo-llvm-cov --version 0.9.1 --locked
       - run: cargo llvm-cov --package stories-core --package stories-normalize --package stories-cluster --package stories-verify --package stories-editorial --package stories-imaging --package stories-scheduler --package stories-publisher --locked --fail-under-lines 80 --lcov --output-path lcov.info
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: domain-coverage
+          path: lcov.info
   render-performance:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: rustup toolchain install 1.100.0 --profile minimal
       - run: cargo bench --package stories-imaging --bench story --locked -- --warm-up-time 1 --measurement-time 3 --sample-size 20 --noplot
       - run: cargo run --release --locked --package stories-imaging --example benchmark -- artifacts/benchmark.json
+      - name: Medir captura HTTP de contrato e clusterização Postgres
+        run: |
+          STORIES_DETECTION_BENCHMARK="$GITHUB_WORKSPACE/artifacts/detection.json" cargo test --release --package stories-collectors --locked simulated_detection_benchmark -- --nocapture
+          STORIES_CLUSTER_BENCHMARK="$GITHUB_WORKSPACE/artifacts/clustering.json" cargo test --release --package stories-store --test collection --locked atomic_ingest_concurrent_clustering_updates_and_burst -- --nocapture
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: render-benchmark
-          path: artifacts/benchmark.json
+          path: |
+            artifacts/benchmark.json
+            artifacts/detection.json
+            artifacts/clustering.json

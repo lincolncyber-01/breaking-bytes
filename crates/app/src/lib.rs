@@ -28,6 +28,7 @@ pub mod collection;
 mod editorial;
 pub mod evaluation;
 pub mod imaging;
+pub mod observability;
 pub mod pipeline;
 pub mod publication;
 mod revisions;
@@ -38,6 +39,7 @@ pub struct AppState {
     pub store: Store,
     pub admin_token: Secret,
     pub dry_run: bool,
+    pub daily_cap: u32,
     pub collection_enabled: bool,
     pub editorial_enabled: bool,
     pub imaging_enabled: bool,
@@ -49,9 +51,13 @@ pub struct AppState {
 }
 
 pub fn router(state: AppState) -> Router {
+    if observability::initialize().is_err() {
+        tracing::error!("exportador operacional indisponível");
+    }
     let state = Arc::new(state);
     let admin = Router::new()
         .route("/status", get(status))
+        .route("/stats", get(observability::stats))
         .route("/pause", put(pause))
         .route("/blocklist", get(admin::rules).put(admin::change_rule))
         .route("/publications/{id}/resolve", post(admin::resolve))
@@ -62,6 +68,7 @@ pub fn router(state: AppState) -> Router {
             get(|| async { Json(serde_json::json!({"status": "alive"})) }),
         )
         .route("/health/ready", get(ready))
+        .route("/metrics", get(observability::metrics))
         .nest("/admin", admin)
         .layer(DefaultBodyLimit::max(1024))
         .layer(ConcurrencyLimitLayer::new(32))
@@ -110,7 +117,8 @@ async fn ready(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         && (state.dry_run
             || state.publishing_enabled
                 && state.publishing_ready.load(Ordering::Relaxed)
-                && state.token_state.allowed().await);
+                && state.token_state.allowed().await
+                && state.store.runtime_role_safe().await.unwrap_or(false));
     let code = if healthy {
         StatusCode::OK
     } else {
@@ -139,7 +147,8 @@ async fn ready(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 async fn status(State(state): State<Arc<AppState>>) -> Response {
     match state.store.paused().await {
         Ok(paused) => Json(serde_json::json!({
-            "paused": paused, "dry_run": state.dry_run, "phase": 5,
+            "paused": paused, "dry_run": state.dry_run, "phase": 6,
+            "daily_cap": state.daily_cap,
             "collection_enabled":state.collection_enabled,"clustering_mode":"hash_entities",
             "editorial_enabled":state.editorial_enabled,"imaging_enabled":state.imaging_enabled,
             "publishing_enabled": state.publishing_enabled,
@@ -168,3 +177,7 @@ async fn pause(State(state): State<Arc<AppState>>, Json(payload): Json<PauseRequ
         Err(_) => StatusCode::SERVICE_UNAVAILABLE.into_response(),
     }
 }
+
+#[cfg(test)]
+#[path = "../../../tests/dry_run.rs"]
+mod dry_run_e2e;

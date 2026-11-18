@@ -1,7 +1,7 @@
 //! Coleta assíncrona; parsing e extração HTML executam em spawn_blocking.
 
 pub mod http;
-mod parsers;
+pub mod parsers;
 use chrono::{DateTime, Utc};
 use http::{HttpClient, Validators};
 use serde::{Deserialize, Serialize};

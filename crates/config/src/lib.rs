@@ -14,6 +14,8 @@ pub struct Settings {
     #[serde(default)]
     pub collection: Collection,
     #[serde(default)]
+    pub observability: Observability,
+    #[serde(default)]
     pub imaging: Imaging,
     #[serde(default)]
     pub publishing: Publishing,
@@ -27,6 +29,27 @@ pub struct Settings {
     pub llm: Llm,
     #[serde(default)]
     pub sources: Vec<Source>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Observability {
+    pub alerts_enabled: bool,
+    pub interval_s: u32,
+    pub bot_token: String,
+    pub chat_id: String,
+    pub backups_expected: bool,
+}
+impl Default for Observability {
+    fn default() -> Self {
+        Self {
+            alerts_enabled: false,
+            interval_s: 60,
+            bot_token: "env:TELEGRAM_BOT_TOKEN".into(),
+            chat_id: "env:TELEGRAM_CHAT_ID".into(),
+            backups_expected: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -318,6 +341,11 @@ impl Settings {
     }
 
     pub fn validate(&self) -> Result<(), ConfigError> {
+        if !(10..=300).contains(&self.observability.interval_s) {
+            return Err(ConfigError::Invalid("intervalo de observabilidade"));
+        }
+        secret_name(&self.observability.bot_token)?;
+        secret_name(&self.observability.chat_id)?;
         let weights = self.publishing.priority_weights;
         if weights
             .iter()

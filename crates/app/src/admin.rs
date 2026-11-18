@@ -82,8 +82,8 @@ pub(crate) async fn resolve(
     }
     // As provas são obtidas por leitura. A associação exata é atestada pelo operador.
     let proof = tokio::try_join!(
-        graph.status(&request.expected_container_id),
-        graph.stories()
+        crate::observability::instagram(&state.store, graph.status(&request.expected_container_id)),
+        crate::observability::instagram(&state.store, graph.stories())
     );
     let (status, stories) = match proof {
         Ok(proof) => proof,

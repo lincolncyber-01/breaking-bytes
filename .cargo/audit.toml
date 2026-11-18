@@ -1,0 +1,4 @@
+# Somente avisos informativos de manutenção, versões e prazo limitados pelo validador.
+# Nenhuma vulnerabilidade CVE é excluída. Ver ADR-017.
+[advisories]
+ignore = ["RUSTSEC-2026-0192", "RUSTSEC-2026-0440", "RUSTSEC-2026-0543"]
