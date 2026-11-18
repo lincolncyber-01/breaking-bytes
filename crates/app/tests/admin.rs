@@ -82,6 +82,19 @@ async fn health_auth_pause_and_fail_closed_readiness() -> Result<(), Box<dyn std
         )
         .await?;
     assert_eq!(stats.status(), StatusCode::OK);
+    let status = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/admin/status")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())?,
+        )
+        .await?;
+    assert_eq!(status.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(status.into_body(), 16384).await?;
+    let status: serde_json::Value = serde_json::from_slice(&bytes)?;
+    assert_eq!(status["daily_cap"], 40);
     for value in [None, Some("Bearer errado"), Some("Basic dGVzdA==")] {
         let mut request = Request::builder().uri("/admin/status");
         if let Some(value) = value {

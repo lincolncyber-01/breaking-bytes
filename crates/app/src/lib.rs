@@ -148,6 +148,7 @@ async fn status(State(state): State<Arc<AppState>>) -> Response {
     match state.store.paused().await {
         Ok(paused) => Json(serde_json::json!({
             "paused": paused, "dry_run": state.dry_run, "phase": 6,
+            "daily_cap": state.daily_cap,
             "collection_enabled":state.collection_enabled,"clustering_mode":"hash_entities",
             "editorial_enabled":state.editorial_enabled,"imaging_enabled":state.imaging_enabled,
             "publishing_enabled": state.publishing_enabled,
@@ -176,3 +177,7 @@ async fn pause(State(state): State<Arc<AppState>>, Json(payload): Json<PauseRequ
         Err(_) => StatusCode::SERVICE_UNAVAILABLE.into_response(),
     }
 }
+
+#[cfg(test)]
+#[path = "../../../tests/dry_run.rs"]
+mod dry_run_e2e;

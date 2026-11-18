@@ -6,7 +6,7 @@ import subprocess
 
 root = Path('/runtime')
 root.mkdir(exist_ok=True)
-inputs = [Path('/usr/local/bin/python3.15'), Path('/usr/local/pgsql/bin/pg_dump'), Path('/usr/local/pgsql/bin/pg_restore'), Path('/usr/local/pgsql/bin/psql')]
+inputs = [Path('/usr/local/bin/python3.15'), Path('/usr/local/bin/aws').resolve(), Path('/usr/local/pgsql/bin/pg_dump'), Path('/usr/local/pgsql/bin/pg_restore'), Path('/usr/local/pgsql/bin/psql')]
 inputs.extend(Path('/usr/local/lib/python3.15/lib-dynload').glob('*.so'))
 inputs.extend(Path('/usr/local/aws-cli').rglob('*.so*'))
 # As bibliotecas do AWS CLI são privadas da distribuição oficial.
@@ -28,7 +28,7 @@ for binary in inputs:
         if str(library).startswith('/usr/local/'):
             continue
         # A base usa /lib como symlink de /usr/lib; copie no destino canônico.
-        destination = root / library.resolve().relative_to('/')
+        destination = root / library.resolve().parent.relative_to('/') / library.name
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(library.resolve(), destination)
         owners = subprocess.run(['dpkg-query', '-S', str(library.resolve())], capture_output=True, text=True, timeout=10)
