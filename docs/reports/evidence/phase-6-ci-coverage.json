@@ -1,0 +1,8 @@
+{
+  "run_id": 44210767728,
+  "commit": "885b6ab1046bc7020b117aa833f7f127c358dfc5",
+  "scope": "core,normalize,cluster,verify,editorial,imaging,scheduler,publisher",
+  "lines_found": 2619,
+  "lines_hit": 2409,
+  "coverage_percent": 91.98167239404353
+}

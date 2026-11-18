@@ -10,8 +10,8 @@ não ativadas. `cargo tree --all-features --invert libsqlite3-sys` não encontra
 qualquer caminho no produto exclusivamente Postgres. A correção >=0.39 é
 incompatível com a faixa opcional do SQLx atual; não há exceção para esse CVE.
 
-O executável final passa a conter o inventário produzido pelo cargo-auditable
-0.7.7. O CI extrai esse executável da imagem, valida a seção comprimida, exige
+O executável final contém inventário no formato interoperável .dep-v0, descrito
+pelo cargo-auditable. O CI extrai esse executável da imagem, valida a seção comprimida, exige
 uma raiz stories-app e versões presentes no lock, recusa SQLite/MySQL e executa
 `cargo audit --deny warnings bin`. Cargo-deny continua verificando o workspace.
 Ausência ou divergência do inventário falha o gate. Isso audita o código entregue
@@ -51,3 +51,45 @@ adotada conserva a stack exigida (especialmente ring, fontes e SDK AWS) e manté
 apenas essas bibliotecas na imagem. Não se declara link estático nem suporte a
 musl sem build, snapshots e benchmarks próprios. O build release continua com
 LTO fat, um codegen unit, panic abort e strip, conforme o blueprint.
+
+
+## Correção do inventário no Rust estável
+
+A execução 44210767519 recusou o inventário do cargo-auditable 0.7.7 por incluir
+SQLite não compilado. A reprodução local chamou o wrapper instalado apontando
+para os metadados do app e confirmou a inclusão. A documentação e o código do
+próprio fornecedor reconhecem essa sobreaproximação de cargo metadata nos
+formatos 0/1; o precursor preciso requer Cargo nightly, incompatível com a
+exigência de toolchain estável desta entrega.
+
+A alternativa implementada usa `cargo build --message-format=json` no build
+release real. `compiler-artifact` identifica todos os pacotes efetivamente
+compilados, incluindo build dependencies e proc macros; `build-finished` precisa
+ser bem-sucedido e o artefato raiz precisa ser o executável stories-tech esperado.
+O exportador cruza esses IDs com cargo metadata, conserva o grafo alcançável de
+dependências normais/build, classifica proc macros como build e exige que nenhum
+pacote compilado fique sem caminho na raiz. Não há filtro por nome, advisory ou
+resultado de scanner. A única redução da sobreaproximação vem da prova de
+compilação do próprio Cargo.
+
+O JSON segue o formato 1 público e é comprimido com zlib. GNU objcopy acrescenta
+a seção somente leitura após o link/strip; não altera instruções do programa.
+A seção é extraída e validada no builder e novamente a partir do executável da
+imagem. Cargo-audit e Trivy continuam lendo o inventário real entregue. O gate
+que rejeita SQLite/MySQL permanece independente do exportador; nenhum CVE é
+ignorado. A procedência é essa exportação de metadados mais compiler-artifacts,
+não um precursor nativo de Cargo nightly nem uma declaração de código removido
+por otimização/LTO.
+
+O teste integra duas compilações Cargo reais em workspace descartável: um backend
+opcional ausente fica fora do inventário; ao ativá-lo, o inventário o conserva e
+a política bloqueia a entrega. Outro teste recusa compilação sem conclusão e
+artefato sem ligação ao grafo. A cadeia de build é confiável; o SBOM documenta
+componentes, sem pretensão de detectar compilador ou dependência maliciosos.
+
+As bibliotecas do runtime operacional preservam seus SONAMEs no diretório
+canônico /usr/lib, sem substituir o symlink /lib da base. O bootloader AWS usa
+bibliotecas de sistema; módulos privados do AWS CLI são inspecionados no seu
+ambiente privado. O build final executa Python/SSL/fuso e todos os clientes.
+O CI 44210767519 já validou os clientes 16.15, SSL 3.5.7 e restauração real usando
+a imagem entregue; os novos gates do inventário exigem nova execução.

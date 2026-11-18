@@ -45,9 +45,10 @@ Se ocorrer uncertain:
    antes de qualquer intervenção no banco. Não redefina request_started_at,
    container_id ou dedupe_key para forçar uma segunda publicação.
 
-O incremento não fornece ainda uma API administrativa para resolver manualmente
-IDs pendentes. A decisão humana e eventual reparo precisam de trilha auditada;
-essa operação será implementada antes do encerramento da fase 5.
+A resolução está disponível em POST /admin/publications/ID/resolve, sob pausa,
+com recibo UUID e atestado explícito da associação container/mídia. Ela não cria
+Story. Consulte [operations.md](operations.md) antes de intervir; sem prova,
+conserve a incerteza. Não faça reparos diretos na intenção por SQL.
 
 A limpeza R2 alcança no máximo vinte objetos terminais por ciclo, após TTL de
 segurança contado da confirmação ou criação, o que for mais recente. Objetos

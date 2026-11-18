@@ -42,12 +42,13 @@ def main():
         value = decode(section.read_bytes())
         root = Path(__file__).resolve().parents[1]
         lock = tomllib.loads((root / "Cargo.lock").read_text())
-        validate(value, {(p["name"], p["version"]) for p in lock["package"]})
         output.write_text(json.dumps(value, indent=2) + "\n")
+        validate(value, {(p["name"], p["version"]) for p in lock["package"]})
         print(json.dumps({"status": "sbom_verificada", "packages": len(value["packages"]), "format": value.get("format", 0)}))
         return 0
-    except (ValueError, KeyError, TypeError, OSError, zlib.error):
-        print("SBOM ausente, inválida ou divergente do produto Postgres configurado.", file=sys.stderr)
+    except (ValueError, KeyError, TypeError, OSError, zlib.error) as error:
+        code = str(error) if isinstance(error, ValueError) and str(error) in {"secao_invalida", "sbom_acima_do_limite", "pacotes_invalidos", "raiz_incorreta", "backend_nao_autorizado_no_binario", "pacote_fora_do_lock", "argumentos_invalidos"} else "inventario_invalido"
+        print("SBOM recusada: " + code, file=sys.stderr)
         return 1
 
 
