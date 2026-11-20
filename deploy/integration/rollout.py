@@ -62,6 +62,7 @@ class LocalImages(Runner):
         try:
             with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
                 process = subprocess.run(arguments, env=environment, input=input_data,
+                                         stdin=subprocess.DEVNULL if input_data is None else None,
                                          stdout=stdout, stderr=stderr, timeout=timeout)
                 if process.returncode:
                     stderr.seek(0)
@@ -108,7 +109,7 @@ class BoundedAdmin(Admin):
             self.probes.append(probe)
             environment = dict(self.environment, ADMIN_TOKEN=self.token, PROBE_METHOD=method,
                                PROBE_PATH=path, PROBE_BODY=body)
-            raw = self.runner.run([*self.command, 'exec', '--no-tty', '--interactive=false',
+            raw = self.runner.run([*self.command, 'exec', '-T',
                                    '--user', '65534:65534', '-e', 'ADMIN_TOKEN', '-e', 'PROBE_METHOD',
                                    '-e', 'PROBE_PATH', '-e', 'PROBE_BODY', 'postgres',
                                    'timeout', '5', 'bash', '-c', script], environment, timeout=10, capture=True)
@@ -215,6 +216,7 @@ def run(image, postgres_image, report_path):
 
         try:
             stage = 'imagens_locais'
+            report['compose_version'] = runner.run(['docker', 'compose', 'version'], environment, capture=True).strip()
             raw = runner.run(['docker', 'image', 'inspect', '--format', '{{.Id}} {{.Architecture}} {{index .Config.Labels "org.opencontainers.image.revision"}}', image], environment, capture=True)
             image_id, architecture, revision = raw.split()
             require(architecture == 'amd64' and re.fullmatch(r'[a-f0-9]{40}', revision),

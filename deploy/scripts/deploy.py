@@ -142,7 +142,8 @@ class Deployment:
         for key in ['PGHOST', 'PGPORT', 'PGUSER', 'PGPASSWORD', 'PGDATABASE', 'PGSSLMODE', 'PGCONNECT_TIMEOUT', 'PGOPTIONS', 'PGPASSFILE', 'PGSERVICEFILE']:
             # Sem '=valor': Docker herda do ambiente do processo, inclusive a senha.
             flags.extend(['-e', key])
-        return self.runner.run([*self.compose(release), 'exec', '--no-tty', *flags, 'postgres', 'psql', '-X', '-q', '-A', '-t', '--no-password', '-v', 'ON_ERROR_STOP=1', *arguments], environment, timeout=timeout, capture=True, input_data=input_data)
+        # -T é compatível também com versões que ainda grafam a opção longa --no-TTY.
+        return self.runner.run([*self.compose(release), 'exec', '-T', *flags, 'postgres', 'psql', '-X', '-q', '-A', '-t', '--no-password', '-v', 'ON_ERROR_STOP=1', *arguments], environment, timeout=timeout, capture=True, input_data=input_data)
 
     def pause(self, release):
         if self.postgres(release, ['-c', PAUSE_SQL]).strip() != '1':

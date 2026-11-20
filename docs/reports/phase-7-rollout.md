@@ -40,6 +40,8 @@ interna usando Bash/timeout da imagem PostgreSQL; printf é builtin e recebe
 token por ambiente, sem segredo em argumentos de processo. Não se publica uma
 porta de host na rede interna do fixture. A publicação de portas de produção
 continua sujeita ao ensaio no destino real.
+O teste também recusa uma senha de runtime incorreta, registra a versão do
+Compose e conserva stderr sanitizado quando um comando falha.
 
 ## Correção encontrada e limites
 
@@ -55,6 +57,16 @@ O CI constrói e usa o Dockerfile original. Não se atribui ao fixture local pro
 de limites de CPU/memória de produção ou de segurança da imagem release.
 Nenhuma credencial real é herdada pelo teste; ele usa ambiente mínimo com
 valores exclusivos e descartáveis.
+
+O binário corrigido, rotulado 20a0552, passou localmente os seis cenários com
+SCRAM e seis códigos de saída zero em 46,536 s. O reforço com senha inválida e
+stdin fechado passou em 48,283 s; com Compose 5.8.0, em 45,906 s. Esses ensaios
+usaram o fixture debug, não são resultados da imagem release.
+Clippy local passou sem avisos em 4 min 07 s. A repetição de nextest local não
+concluiu a linkedição por falta de disco; os 111 testes Rust passaram no CI.
+O CI apontou depois a opção --no-tty incompatível com seu Compose; o ADR-021
+registra o diagnóstico e a troca por -T. Os resultados finais da revisão
+corrigida ficam vinculados ao SHA nos checks e no artefato compose-rollout.
 
 Reprodução no host de testes, após construir e rotular a imagem:
 
