@@ -16,6 +16,16 @@ Cada fase tem relatório próprio; decisões e desvios estão em docs/adr/.
 publicada ou infraestrutura do proprietário implantada. As fases que exigem
 corpus, credenciais e passagem real de tempo conservam esses portões abertos.
 
+| Fase | Entrega técnica | Portão externo ainda aberto |
+| --- | --- | --- |
+| 1 — Fundação | Workspace, CI, config, migrations e health checks | Instalação no destino |
+| 2 — Captura/deduplicação | Coletores, normalização, cluster e contratos/PG | 24 h reais e revisão semântica |
+| 3 — Verificação/redação | Níveis, LLM, checagem e avaliação sintética | Chave/modelo e corpus real revisado |
+| 4 — Imagens | Validação, template, pixels/Insta e benchmark release | Qualidade das imagens reais e desempenho da VPS |
+| 5 — Publicação | R2/Graph, reconciliação e caos SIGKILL aprovados em contrato | Story real na conta de staging |
+| 6 — Endurecimento | Métricas, alertas, papéis, backup/restore, scans e runbook | Alertas recebidos e backup/restore R2 reais |
+| 7 — Canário | Release, rollout/rollback, observador e recibos | Dry-run 48 h, canário 72 h e promoção reais |
+
 O [Story de exemplo](examples/story.jpg) é sintético, renderizado pelo mesmo
 template. Os [benchmarks](benchmarks.md) contêm arquivos originais e reprodução:
 CI release da fase 6 mediu render p95 53,957 ms, composição 16 MP 81,173 ms,
@@ -31,10 +41,18 @@ parsers sob fuzz e imagens próprias sem HIGH/CRITICAL nem segredos. O teste de
 caos usou SIGKILL real, Postgres real e Meta simulada; conservou um POST/efeito e
 a intenção. Backup/restauração usaram dois clusters reais e S3 simulado.
 
-A verificação final da fase 7 está registrada nos arquivos evidence/phase-7-*;
-seus checks serão associados ao commit efetivamente validado, sem atribuir a
-ele resultados de outro código. Resultados de workflow manual de release/deploy
-não são alegados: só serão obtidos após integrar a entrega e configurar o host.
+A fase 7 passou localmente 111 testes Rust sem ignorados, 12 testes
+operacionais, nove de backup/restauração e nove de ferramentas. As saídas reais
+estão em evidence/phase-7-*. A toolchain foi comparada ao manifesto oficial
+stable em 20/11/2026: Rust 1.100.0. Formatação/actionlint terminaram com código 0.
+Clippy de todos os targets/recursos terminou sem avisos, com -D warnings.
+Os checks completos da revisão entregue estão no
+[PR #7](https://github.com/lincolncyber-01/breaking-bytes/pull/7), vinculados ao
+SHA efetivamente executado. A integração de PostgreSQL não usa banco simulado.
+
+Resultados de workflow manual de release/deploy não são alegados: só serão
+obtidos após integrar a entrega e configurar o host. Testes de rollout verificam
+contratos e recuperação; não representam implantação na VPS do proprietário.
 
 ## Desvios e limites conhecidos
 

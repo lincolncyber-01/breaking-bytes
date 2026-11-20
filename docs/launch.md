@@ -72,8 +72,9 @@ O padrão simula. Inspecione os JPEGs e a trilha editorial; depois faça o ensai
 real na conta de teste com `python3 deploy/scripts/staging.py start --publish`.
 Esse comando publica de fato e exige intenção explícita e conta distinta.
 Para a API administrativa de staging, injete STAGING_ADMIN_TOKEN como ADMIN_TOKEN
-no processo do operador e use `python3 deploy/scripts/control.py status --port
-8081`. Faça o mesmo para pause/resume. Teste permissão, JPEG acessível pela Meta,
+no processo do operador e use
+`python3 deploy/scripts/control.py status --port 8081`.
+Faça o mesmo para pause/resume. Teste permissão, JPEG acessível pela Meta,
 expiração/renovação do token, cota, reconciliação, Telegram e kill switch. Pare
 com `python3 deploy/scripts/staging.py stop`; o comando preserva os volumes.
 

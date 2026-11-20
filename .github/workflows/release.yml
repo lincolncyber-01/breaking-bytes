@@ -41,8 +41,8 @@ jobs:
           python3 tools/registry_tag.py "$BACKUP_IMAGE" "$VERSION"
       - name: Construir imagens com procedência do commit
         run: |
-          docker build --label "org.opencontainers.image.revision=$GITHUB_SHA" --label "org.opencontainers.image.version=$VERSION" -f deploy/Dockerfile -t "$APP_IMAGE:$VERSION" .
-          docker build --label "org.opencontainers.image.revision=$GITHUB_SHA" --label "org.opencontainers.image.version=$VERSION" -f deploy/backup/Dockerfile -t "$BACKUP_IMAGE:$VERSION" .
+          docker build --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=$GITHUB_SHA" --label "org.opencontainers.image.version=$VERSION" -f deploy/Dockerfile -t "$APP_IMAGE:$VERSION" .
+          docker build --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=$GITHUB_SHA" --label "org.opencontainers.image.version=$VERSION" -f deploy/backup/Dockerfile -t "$BACKUP_IMAGE:$VERSION" .
       - name: Conferir inventário e auditoria do executável entregue
         run: |
           rustup toolchain install 1.100.0 --profile minimal

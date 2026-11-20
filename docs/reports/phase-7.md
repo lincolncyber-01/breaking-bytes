@@ -73,8 +73,47 @@ qualquer divergência desses valores também falha antes do snapshot.
 
 ## Verificação e riscos
 
-As saídas e os resultados finais desta fase são consolidados no
-[relatório de entrega](final.md) e em evidence/phase-7-*. A reconsulta das quatro
+Resultados locais: compilação completa em 6 min 16 s e recompilação da correção
+do teste em 30,25 s; 111 testes Rust aprovados, zero ignorados, em 150,511 s;
+12 testes operacionais aprovados em 9,670 s; nove testes de backup aprovados em
+14,499 s e nove de ferramentas em 0,874 s. Clippy workspace/all-targets/
+all-features/locked terminou sem avisos em 3 min 56 s, com warnings negados.
+A formatação e actionlint terminaram com exit code 0. As saídas são preservadas:
+
+| Verificação | Saída real |
+| --- | --- |
+| Compilação | [build](evidence/phase-7-build.txt) e [recompilação](evidence/phase-7-rebuild.txt) |
+| Rust/nextest | [111 aprovados](evidence/phase-7-nextest.txt) |
+| Clippy -D warnings | [log completo](evidence/phase-7-clippy.txt) |
+| Operação/psql/PG | [12 aprovados](evidence/phase-7-operations.txt) |
+| Backup/restore | [nove aprovados](evidence/phase-7-backup.txt) |
+| Ferramentas/release | [nove aprovados](evidence/phase-7-tools.txt) |
+| Fmt/workflows | [códigos e saídas](evidence/phase-7-static-checks.json) |
+| Versão estável oficial | [manifesto consultado e toolchain](evidence/phase-7-toolchain.json) |
+
+```text
+Finished `dev` profile [unoptimized] target(s) in 3m 56s
+Summary [150.511s] 111 tests run: 111 passed, 0 skipped
+Ran 12 tests in 9.670s — OK
+Ran 9 tests in 14.499s — OK
+Ran 9 tests in 0.874s — OK
+```
+
+Actionlint foi executado sem os verificadores opcionais ShellCheck/Pyflakes;
+não se atribui resultado a essas ferramentas. Compose de produção e staging
+também foram validados sem imprimir ambientes resolvidos.
+
+O novo teste revelou a promoção decimal de f32 ao usar serde_json::to_value:
+60,8 virava 60,799999. A comparação agora usa o JSON serializado, como as
+referências originais. O teste corrigido e toda a suíte passaram; não se
+regeneraram pixels para aceitar a diferença.
+
+Devido ao disco de 8 GB deste ambiente, a execução local comprimiu bibliotecas
+geradas após o build e usou metadados dos 30 binários recém-compilados no
+nextest, em série. Nenhum teste foi filtrado ou ignorado. O CI executa os
+comandos normais locked, incluindo cargo nextest run com todos os recursos.
+Os resultados completos são consolidados no [relatório de entrega](final.md).
+A reconsulta das quatro
 páginas oficiais Meta em 20/11/2026 confirmou permissões e fluxo e encontrou
 novamente textos conflitantes de 100 e 50 publicações. O runtime consulta a cota
 da conta; [ADR-002](../adr/002-meta-publicacao.md).
