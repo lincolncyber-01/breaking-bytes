@@ -52,7 +52,9 @@ SHA efetivamente executado. A integração de PostgreSQL não usa banco simulado
 
 Resultados de workflow manual de release/deploy não são alegados: só serão
 obtidos após integrar a entrega e configurar o host. Testes de rollout verificam
-contratos e recuperação; não representam implantação na VPS do proprietário.
+contratos e recuperação. O [ensaio Compose complementar](phase-7-rollout.md)
+acrescenta containers, processo, SQL e HTTP reais e regressão de shutdown;
+não representa implantação na VPS do proprietário ou autenticação real no GHCR.
 
 ## Desvios e limites conhecidos
 

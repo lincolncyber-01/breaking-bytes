@@ -49,7 +49,7 @@ processos são reais. Aceites externos não foram inferidos de contratos.
 | Testes/coverage/fuzz | .github/workflows/ci.yml e fuzz.yml | 111 Rust; cobertura fase 6 91,98% do domínio; 3 parsers 20 s/alvo; evidências por commit nos relatórios |
 | Supply chain e imagens | security.yml, deny.toml, tools, ADR-017/018 | Gates reais, inventário do binário e Trivy; resultados finais no relatório da fase 6 |
 | Docker/Compose/proxy/logs/limites | deploy/* | CI constrói/renderiza sem rede, valida Compose/Caddy/Prometheus/calendários |
-| CI/CD versionado, rollback e canário | release.yml, deploy.yml, deploy/scripts, ADR-019 | Checks da revisão, tags sem sobrescrita, digest, pausa/migração/readiness e falhas por contrato; psql/PG reais; registry/VPS reais pendentes |
+| CI/CD versionado, rollback e canário | release.yml, deploy.yml, deploy/scripts e integration/rollout.py, ADR-019/020 | Contratos e ensaio Compose/PG: troca de imagem, migração, readiness, dados e pausa preservados; registry/VPS reais pendentes; relatório complementar da fase 7 |
 | Dev/staging/prod, CODEOWNERS e revisão | staging-compose.yml, scripts/staging.py, .github/CODEOWNERS, docs/launch.md | Isolamento/recusa de conta igual testados; environments/proteção de main são configuração manual |
 | Disponibilidade 99,5% mensal | Health, restart, métricas e runbook | Exige janela mensal; não demonstrada por teste curto |
 | Dry-run 48 h e canário 72 h/10 por dia | acceptance.py, deploy.py e docs/launch.md | Duração completa, integridade, versão, relatório SQL e revisão exigidos; testes de lógica não equivalem às janelas reais |

@@ -41,9 +41,16 @@ jobs:
       - name: Compilar release
         run: cargo build --release --locked
       - name: Construir imagem
-        run: docker build -f deploy/Dockerfile -t breaking-bytes:ci .
+        run: docker build --label "org.opencontainers.image.revision=$GITHUB_SHA" -f deploy/Dockerfile -t breaking-bytes:ci .
       - name: Render offline na imagem sem rede e sem escrita no sistema
         run: docker run --rm --network none --read-only --tmpfs /app/artifacts:rw,uid=65532,gid=65532,size=16m breaking-bytes:ci --render-example /app/artifacts/example.jpg
+      - name: Rollout e rollback com Compose e Postgres reais
+        run: python3 deploy/integration/rollout.py --image breaking-bytes:ci --report artifacts/rollout.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: compose-rollout
+          path: artifacts/rollout.json
   domain-coverage:
     runs-on: ubuntu-24.04
     timeout-minutes: 30

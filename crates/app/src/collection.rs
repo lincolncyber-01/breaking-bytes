@@ -95,9 +95,10 @@ pub async fn run_with_http(
     loop {
         tokio::select! {
             result=&mut worker=> {
-                producers.abort_all();
                 result.context("worker de cluster encerrou com panic")??;
                 if !*stop.borrow(){anyhow::bail!("worker de cluster encerrou antes do shutdown");}
+                // Os produtores observam o mesmo sinal; cancelar aqui transformava
+                // uma parada normal em JoinError antes de drenar os lotes confirmados.
                 break;
             }
             item=receiver.recv()=> {
