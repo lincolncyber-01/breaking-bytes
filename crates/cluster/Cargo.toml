@@ -1,0 +1,19 @@
+[package]
+name = "stories-cluster"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde.workspace = true
+stories-normalize.workspace = true
+
+[dev-dependencies]
+chrono.workspace = true
+proptest.workspace = true
+stories-core.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,18 @@
+{
+  "architecture": "x86_64",
+  "cold_render_ms": 62.307608,
+  "cpu": "AMD EPYC 9V74 80-Core Processor",
+  "initialization_ms": 1.25171,
+  "jpeg_bytes": 131631,
+  "passed": true,
+  "peak_rss_kib": 162800,
+  "profile": "release",
+  "render_16mp_p95_ms": 85.197884,
+  "render_max_ms": 413.765288,
+  "render_p50_ms": 53.623257,
+  "render_p95_ms": 76.455154,
+  "samples": 50,
+  "scope": "CPU: arte original, shaping, resize, composição e JPEG90; sem rede/LLM",
+  "target_render_ms": 150,
+  "target_rss_mib": 300
+}

@@ -1,0 +1,18 @@
+Origem: GitHub Actions 44210767519 / job 134488340255
+Commit: 885b6ab1046bc7020b117aa833f7f127c358dfc5
+Conclusão do job: success. Trechos de stdout real; log integral disponível no GitHub.
+
+2026-11-18T00:48:41.7792127Z Ran 9 tests in 11.350s
+2026-11-18T00:48:41.7792799Z OK
+2026-11-18T00:48:59.3825067Z #14 0.830 postgres.tar.gz: OK
+2026-11-18T00:49:03.0527793Z #16 2.727 configure: using openssl: OpenSSL 3.5.7 9 Jun 2026 (Library: OpenSSL 3.5.7 9 Jun 2026)
+2026-11-18T00:50:39.0121944Z #26 0.128 pg_dump (PostgreSQL) 16.15
+2026-11-18T00:50:39.1659060Z #26 0.130 pg_restore (PostgreSQL) 16.15
+2026-11-18T00:50:39.1659438Z #26 0.132 psql (PostgreSQL) 16.15
+2026-11-18T00:50:39.3310822Z #26 0.448 aws-cli/2.39.6 Python/3.14.8 Linux/7.0.0-1014-aws docker/x86_64.debian.13
+2026-11-18T00:50:39.5550480Z #26 0.502 OpenSSL 3.5.7 9 Jun 2026
+2026-11-18T00:50:40.9492753Z aws-cli/2.39.6 Python/3.14.8 Linux/7.0.0-1014-aws docker/x86_64.debian.13
+2026-11-18T00:50:41.1374719Z OpenSSL 3.5.7 9 Jun 2026
+2026-11-18T00:50:46.6516121Z Ran 9 tests in 5.429s
+2026-11-18T00:50:46.6516307Z OK
+2026-11-18T00:51:27.7833974Z {"status": "monitoramento_provisionado", "panels": 12}

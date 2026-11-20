@@ -1,0 +1,34 @@
+────────────
+ Nextest run ID d0233625-42f9-4acc-9a8a-893766114093 with nextest profile: default
+    Starting 3 tests across 30 binaries (107 tests skipped)
+        PASS [   9.657s] (1/3) stories-app::admin health_auth_pause_and_fail_closed_readiness
+  stdout ───
+
+    running 1 test
+    test health_auth_pause_and_fail_closed_readiness ... ok
+
+    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 9.65s
+
+
+        PASS [   3.559s] (2/3) stories-collectors tests::simulated_detection_benchmark
+  stdout ───
+
+    running 1 test
+    {"capture_normalize_max_ms":174.643328,"capture_normalize_p50_ms":66.28484499999999,"capture_normalize_p95_ms":82.13409800000001,"cold_ms":86.955744,"items_per_sample":200,"profile":"debug","samples":50,"scope":"Captura RSS por HTTP local, robots, parsing e normalização de 200 itens; sem intervalo de polling, rede pública, banco, LLM ou Meta","test_process_peak_rss_kib":20576}
+    test tests::simulated_detection_benchmark ... ok
+
+    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 3.55s
+
+
+        PASS [   7.950s] (3/3) stories-store::collection atomic_ingest_concurrent_clustering_updates_and_burst
+  stdout ───
+
+    running 1 test
+    {"burst_seconds":1.479763301,"cluster_max_ms":7.746481,"cluster_p50_ms":4.065642,"cluster_p95_ms":5.2225340000000005,"items":200,"passed":true,"profile":"debug","scope":"200 artigos normalizados: ingestão, deduplicação e clusterização transacional com Postgres real; sem feeds públicos ou LLM","target_cluster_p95_ms":50}
+    test atomic_ingest_concurrent_clustering_updates_and_burst ... ok
+
+    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.92s
+
+
+────────────
+     Summary [  21.175s] 3 tests run: 3 passed, 107 skipped

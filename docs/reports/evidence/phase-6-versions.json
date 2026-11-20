@@ -1,0 +1,22 @@
+{
+  "checked_at": "2026-11-17",
+  "rust": "1.100.0",
+  "metrics": "0.24.6",
+  "metrics-exporter-prometheus": "0.18.3",
+  "uuid": "1.29.3",
+  "cargo-deny": "0.21.0",
+  "cargo-audit": "0.23.0",
+  "trivy": "0.76.2",
+  "trivy_linux_amd64_sha256": "bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf",
+  "aws-cli": "2.39.6",
+  "cargo-fuzz": "0.13.2",
+  "libfuzzer-sys": "0.4.13",
+  "image_digests": {
+    "rust:1.100.0-slim-bookworm": "sha256:7c7d4eb4d05b7781187a327809466cfddf29753f6defdc3d19a0e291951b7a37",
+    "gcr.io/distroless/cc-debian12:nonroot": "sha256:9dac0a79194e45a7da0158a9c6da57b217585af0786db3845d1f0ec1a0dd182f",
+    "grafana/grafana:13.3.1": "sha256:0615ec4fbd4072004b7d86b46ded63013a74b7d6eb1119273dd89e8fa25c13cf",
+    "prom/prometheus:v3.16.0": "sha256:e04987641b57704f408e31f6373ba4138ecf27cb4a165d24aabb6c38fddd0f06",
+    "caddy:2.11.9": "sha256:4851e54a46b206517c574821bb5cc67f170d2156041e9fbc4c9193b45e84a75b",
+    "amazon/aws-cli:2.39.6": "sha256:eccdb3ec77e159d43ca6a750a70738c546883138be7f094498294a1477ec7e42"
+  }
+}

@@ -11,12 +11,26 @@ name = "stories-tech"
 path = "src/main.rs"
 
 [dependencies]
+metrics.workspace = true
+metrics-exporter-prometheus.workspace = true
+reqwest.workspace = true
+stories-scheduler.workspace = true
+stories-publisher.workspace = true
 anyhow.workspace = true
 axum.workspace = true
+chrono.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 stories-config.workspace = true
 stories-store.workspace = true
+stories-normalize.workspace = true
+stories-collectors.workspace = true
+stories-core.workspace = true
+stories-verify.workspace = true
+stories-editorial.workspace = true
+stories-imaging.workspace = true
+blake3.workspace = true
+uuid.workspace = true
 subtle.workspace = true
 tokio.workspace = true
 tower.workspace = true
@@ -24,9 +38,19 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 
 [dev-dependencies]
+stories-publisher = { workspace = true, features = ["test-support"] }
+wiremock.workspace = true
 http-body-util.workspace = true
 sqlx.workspace = true
 testcontainers.workspace = true
 
 [lints]
 workspace = true
+
+[features]
+test-support = ["stories-publisher/test-support"]
+
+[[bin]]
+name = "stories-publication-chaos"
+path = "src/bin/publication_chaos.rs"
+required-features = ["test-support"]

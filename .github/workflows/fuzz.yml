@@ -1,0 +1,40 @@
+name: Fuzz dos parsers
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '45 5 * * 0'
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  CARGO_BUILD_JOBS: '2'
+  CARGO_INCREMENTAL: '0'
+jobs:
+  fuzz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - run: rustup toolchain install nightly-2026-11-17 --profile minimal
+      - run: cargo +nightly-2026-11-17 install cargo-fuzz --version 0.13.2 --locked
+      - name: Semear com fixtures versionadas
+        run: |
+          mkdir -p fuzz/corpus/feed fuzz/corpus/html fuzz/corpus/image
+          python3 - <<'PY'
+          from pathlib import Path
+          Path('fuzz/corpus/feed/rss.xml').write_text('<rss version="2.0"><channel><title>Tecnologia</title><link>https://example.com</link><description>Teste</description><item><title>Rust 1.100</title><link>https://example.com/rust</link></item></channel></rss>')
+          Path('fuzz/corpus/html/article.html').write_text('<article><h1>Rust anuncia versão estável</h1><p>Conteúdo é dado.</p></article>')
+          Path('fuzz/corpus/image/story.jpg').write_bytes(Path('docs/reports/examples/story.jpg').read_bytes())
+          PY
+      - run: cargo +nightly-2026-11-17 fuzz run feed -- -max_total_time=20 -max_len=262144 -rss_limit_mb=512 -timeout=2
+      - run: cargo +nightly-2026-11-17 fuzz run html -- -max_total_time=20 -max_len=262144 -rss_limit_mb=512 -timeout=2
+      - run: cargo +nightly-2026-11-17 fuzz run image -- -max_total_time=20 -max_len=262144 -rss_limit_mb=512 -timeout=2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: failure()
+        with:
+          name: parser-reproducers
+          path: fuzz/artifacts/

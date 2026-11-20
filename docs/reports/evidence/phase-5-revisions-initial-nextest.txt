@@ -1,0 +1,71 @@
+   Compiling stories-verify v0.1.0 (/workspace/work/breaking-bytes/crates/verify)
+   Compiling stories-editorial v0.1.0 (/workspace/work/breaking-bytes/crates/editorial)
+   Compiling stories-imaging v0.1.0 (/workspace/work/breaking-bytes/crates/imaging)
+   Compiling stories-store v0.1.0 (/workspace/work/breaking-bytes/crates/store)
+   Compiling stories-app v0.1.0 (/workspace/work/breaking-bytes/crates/app)
+    Finished `test` profile [unoptimized] target(s) in 30.15s
+────────────
+ Nextest run ID 7ef790b0-62c5-4892-81db-a7e1302ab647 with nextest profile: default
+    Starting 11 tests across 27 binaries (81 tests skipped)
+        FAIL [   2.628s] ( 1/11) stories-app editorial::tests::durable_editorial_rewrites_retries_resume_and_revision_fencing
+  stdout ───
+
+    running 1 test
+    test editorial::tests::durable_editorial_rewrites_retries_resume_and_revision_fencing ... FAILED
+
+    failures:
+
+    failures:
+        editorial::tests::durable_editorial_rewrites_retries_resume_and_revision_fencing
+
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 2.62s
+
+  stderr ───
+    Error: failed to create a container: Docker responded with status code 500: symlink libsqlite3.so.0.8.6 /home/dockerd/.local/share/docker/vfs/dir/b980756871f0d5a82ab8e1376f5274ab7e4e0b1e62cb60607cf56ba3b0a9cacf/usr/lib/x86_64-linux-gnu/libsqlite3.so.0: no space left on device
+
+        FAIL [   0.011s] ( 2/11) stories-app revisions::tests::correction_dry_run_survives_crash_and_fences_changed_sources
+  stdout ───
+
+    running 1 test
+    test revisions::tests::correction_dry_run_survives_crash_and_fences_changed_sources ... FAILED
+
+    failures:
+
+    failures:
+        revisions::tests::correction_dry_run_survives_crash_and_fences_changed_sources
+
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+  stderr ───
+    Error: failed to create a container: Docker responded with status code 500: mkdir /home/dockerd/.local/share/docker/vfs/dir/9f421973deb6ea79fc35c40b99b1c1b6932083e3e0522e0ea63858688e0f7106-init: no space left on device
+
+        PASS [   0.008s] ( 3/11) stories-app revisions::tests::watch_policy_uses_validated_configuration
+        PASS [   0.037s] ( 4/11) stories-editorial::revisions classification_requires_literal_before_after_and_explicit_correction_notice
+        FAIL [   0.031s] ( 5/11) stories-editorial::revisions independent_check_rejects_different_classification_even_when_facts_are_supported
+  stdout ───
+
+    running 1 test
+    test independent_check_rejects_different_classification_even_when_facts_are_supported ... FAILED
+
+    failures:
+
+    failures:
+        independent_check_rejects_different_classification_even_when_facts_are_supported
+
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.03s
+
+  stderr ───
+    Error: UnsupportedCitation
+
+        PASS [   0.016s] ( 6/11) stories-normalize::revisions comparison_ignores_only_whitespace_and_keeps_signs
+        PASS [   0.012s] ( 7/11) stories-normalize::revisions late_editorial_notice_is_preserved_without_forging_publication_date
+        PASS [   0.016s] ( 8/11) stories-normalize::revisions scripts_do_not_create_notices_and_lexical_notice_is_only_a_signal
+        PASS [   0.046s] ( 9/11) stories-verify::revisions hash_keeps_numeric_sign_and_ignores_observation_metadata
+        PASS [   0.006s] (10/11) stories-verify::revisions n2_requires_independent_sources_and_n1_accepts_one_primary
+        PASS [   0.005s] (11/11) stories-verify::revisions revisions_require_fresh_observation_unchanged_identity_and_matching_hash
+────────────
+     Summary [   2.818s] 11 tests run: 8 passed, 3 failed, 81 skipped
+        FAIL [   2.628s] ( 1/11) stories-app editorial::tests::durable_editorial_rewrites_retries_resume_and_revision_fencing
+        FAIL [   0.011s] ( 2/11) stories-app revisions::tests::correction_dry_run_survives_crash_and_fences_changed_sources
+        FAIL [   0.031s] ( 5/11) stories-editorial::revisions independent_check_rejects_different_classification_even_when_facts_are_supported
+error: test run failed

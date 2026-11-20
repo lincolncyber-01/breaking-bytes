@@ -1,0 +1,5 @@
+Error: chave LLM ausente no ambiente
+
+Caused by:
+    environment variable not found
+exit_code: 1 (esperado: credencial ausente)

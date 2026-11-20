@@ -1,0 +1,127 @@
+name: Segurança e operação
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '20 5 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  CARGO_BUILD_JOBS: '2'
+  CARGO_INCREMENTAL: '0'
+jobs:
+  dependencies:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - run: rustup toolchain install 1.100.0 --profile minimal
+      - run: cargo fetch --locked
+      - run: cargo install cargo-deny --version 0.21.0 --locked
+      - run: python3 -m unittest discover -s tools -p 'test_*.py' -v
+      - run: python3 tools/check_security_exceptions.py
+      - run: cargo deny check
+
+  operations:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Validar workflows com actionlint fixo
+        run: |
+          curl --fail --silent --show-error --location https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz -o /tmp/actionlint.tar.gz
+          echo '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  /tmp/actionlint.tar.gz' | sha256sum --check
+          tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
+          /tmp/actionlint -shellcheck= -pyflakes=
+      - name: Contratos de lançamento sem serviços externos
+        run: OPERATIONS_INTEGRATION=1 python3 -m unittest discover -s deploy/scripts -p 'test_*.py' -v
+      - name: Contratos e restauração real em clusters separados
+        run: BACKUP_INTEGRATION=1 python3 -m unittest discover -s deploy/backup -p test_backup.py -v
+      - name: Construir ferramentas operacionais e conferir versões
+        run: |
+          docker build -f deploy/backup/Dockerfile -t breaking-bytes-backup:ci .
+          docker run --rm --network none --read-only breaking-bytes-backup:ci --help
+          docker run --rm --network none --read-only --entrypoint aws breaking-bytes-backup:ci --version
+          docker run --rm --network none --read-only --entrypoint python3 breaking-bytes-backup:ci -I -c 'from zoneinfo import ZoneInfo; import ssl; print(ZoneInfo("America/Bahia")); print(ssl.OPENSSL_VERSION)'
+          BACKUP_INTEGRATION=1 BACKUP_TOOL_IMAGE=breaking-bytes-backup:ci python3 -m unittest discover -s deploy/backup -p test_backup.py -v
+      - name: Validar configurações sem imprimir ambientes resolvidos
+        env:
+          POSTGRES_PASSWORD: contract-only
+          DATABASE_URL: postgres://postgres:contract-only@postgres/stories
+          ADMIN_TOKEN: contract-only-admin-token-with-32-bytes
+          GRAFANA_ADMIN_PASSWORD: contract-only-dashboard-password
+          ADMIN_DOMAIN: admin.example.invalid
+          BACKUP_DATABASE_URL: postgres://stories_backup:contract-only@postgres/stories
+          BACKUP_R2_ACCOUNT_ID: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          BACKUP_R2_ACCESS_KEY_ID: contract-only
+          BACKUP_R2_SECRET_ACCESS_KEY: contract-only
+          RESTORE_DATABASE_URL: postgres://postgres:contract-only@restore-db/stories_restore_check
+          RESTORE_DATABASE_PASSWORD: contract-only
+          BOOTSTRAP_DATABASE_URL: postgres://postgres:contract-only@postgres/stories
+          MIGRATION_DATABASE_PASSWORD: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          RUNTIME_DATABASE_PASSWORD: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+          BACKUP_DATABASE_PASSWORD: cccccccccccccccccccccccccccccccc
+          STAGING_POSTGRES_PASSWORD: contract-only-staging
+          STAGING_DATABASE_URL: postgres://stories_runtime:contract-only-staging@postgres/stories
+          STAGING_MIGRATION_DATABASE_URL: postgres://stories_owner:contract-only-staging@postgres/stories
+          STAGING_ADMIN_TOKEN: contract-only-staging-token-with-32-bytes
+        run: |
+          docker compose -f deploy/docker-compose.yml config --quiet
+          docker compose -f deploy/docker-compose.yml -f deploy/staging-compose.yml config --quiet
+          docker compose -f deploy/docker-compose.yml -f deploy/monitoring/compose.yml config --quiet
+          docker compose -f deploy/docker-compose.yml -f deploy/caddy-compose.yml config --quiet
+          docker compose -f deploy/backup/compose.yml config --quiet
+          docker compose -f deploy/backup/restore-compose.yml config --quiet
+          docker compose -f deploy/bootstrap-compose.yml config --quiet
+          docker run --rm --network none -e ADMIN_DOMAIN -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2.11.9@sha256:4851e54a46b206517c574821bb5cc67f170d2156041e9fbc4c9193b45e84a75b caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+          docker run --rm --network none --entrypoint promtool -v "$PWD/deploy/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro" prom/prometheus:v3.16.0@sha256:e04987641b57704f408e31f6373ba4138ecf27cb4a165d24aabb6c38fddd0f06 check config /etc/prometheus/prometheus.yml
+          systemd-analyze calendar '*-*-* 00:00:00 America/Bahia'
+          systemd-analyze calendar '*-*-01 01:00:00 America/Bahia'
+          python3 deploy/monitoring/smoke.py
+  image-scan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Instalar Trivy fixo e conferir checksum da publicação oficial
+        run: |
+          curl --fail --silent --show-error --location https://github.com/aquasecurity/trivy/releases/download/v0.76.2/trivy_0.76.2_Linux-64bit.tar.gz -o /tmp/trivy.tar.gz
+          echo 'bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf  /tmp/trivy.tar.gz' | sha256sum --check
+          tar -xzf /tmp/trivy.tar.gz -C /tmp trivy
+          /tmp/trivy --version
+      - run: rustup toolchain install 1.100.0 --profile minimal
+      - run: cargo install cargo-audit --version 0.23.0 --locked
+      - run: docker build -f deploy/Dockerfile -t breaking-bytes:security .
+      - name: Auditar o executável realmente entregue e sua lista de dependências
+        run: |
+          mkdir -p artifacts
+          image_container=$(docker create breaking-bytes:security)
+          docker cp "$image_container:/app/stories-tech" artifacts/stories-tech
+          docker rm "$image_container"
+          objcopy --dump-section .dep-v0=artifacts/dependencies.zlib artifacts/stories-tech /tmp/sbom-copy
+          python3 -m unittest discover -s tools -p test_binary_sbom.py -v
+          python3 tools/check_binary_sbom.py artifacts/dependencies.zlib artifacts/stories-tech.sbom.json
+          cargo audit --deny warnings bin artifacts/stories-tech
+
+      - name: Vulnerabilidades e segredos na imagem de produção
+        if: ${{ !cancelled() }}
+        run: /tmp/trivy image --exit-code 1 --severity HIGH,CRITICAL --scanners vuln,secret --format json --output trivy-app.json breaking-bytes:security
+      - name: Construir e verificar a imagem operacional
+        if: ${{ !cancelled() }}
+        run: |
+          docker build -f deploy/backup/Dockerfile -t breaking-bytes-backup:security .
+          /tmp/trivy image --exit-code 1 --severity HIGH,CRITICAL --scanners vuln,secret --format json --output trivy-backup.json breaking-bytes-backup:security
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: security-image-report
+          path: |
+            trivy-app.json
+            trivy-backup.json
+            artifacts/stories-tech.sbom.json
+            artifacts/dependencies.zlib

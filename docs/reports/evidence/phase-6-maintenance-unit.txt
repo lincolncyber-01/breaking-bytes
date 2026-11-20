@@ -1,0 +1,7 @@
+test_cve_unsoundness_patch_or_identity_change_revokes_exception (test_security_exceptions.ExceptionTests.test_cve_unsoundness_patch_or_identity_change_revokes_exception) ... ok
+test_maintenance_without_patch_is_limited_to_reviewed_version_and_date (test_security_exceptions.ExceptionTests.test_maintenance_without_patch_is_limited_to_reviewed_version_and_date) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.000s
+
+OK

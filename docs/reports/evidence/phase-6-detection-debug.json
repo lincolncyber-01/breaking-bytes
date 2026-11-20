@@ -1,0 +1,11 @@
+{
+  "capture_normalize_max_ms": 174.643328,
+  "capture_normalize_p50_ms": 66.28484499999999,
+  "capture_normalize_p95_ms": 82.13409800000001,
+  "cold_ms": 86.955744,
+  "items_per_sample": 200,
+  "profile": "debug",
+  "samples": 50,
+  "scope": "Captura RSS por HTTP local, robots, parsing e normalização de 200 itens; sem intervalo de polling, rede pública, banco, LLM ou Meta",
+  "test_process_peak_rss_kib": 20576
+}

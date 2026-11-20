@@ -1,0 +1,14 @@
+test_connection_never_puts_password_in_process_arguments (test_backup.BackupTests.test_connection_never_puts_password_in_process_arguments) ... ok
+test_malformed_key_cannot_select_or_delete_another_namespace (test_backup.BackupTests.test_malformed_key_cannot_select_or_delete_another_namespace) ... ok
+test_orphan_collection_requires_managed_key_no_manifest_and_48_hours (test_backup.BackupTests.test_orphan_collection_requires_managed_key_no_manifest_and_48_hours) ... ok
+test_provider_error_does_not_reveal_url_credentials_or_response (test_backup.BackupTests.test_provider_error_does_not_reveal_url_credentials_or_response) ... ok
+test_put_get_manifest_restore_and_quarantine_contract (test_backup.BackupTests.test_put_get_manifest_restore_and_quarantine_contract) ... ok
+test_restore_rejects_same_cluster_nonempty_database_and_tampered_dump (test_backup.BackupTests.test_restore_rejects_same_cluster_nonempty_database_and_tampered_dump) ... ok
+test_retention_preserves_distinct_days_weeks_and_one_version_per_period (test_backup.BackupTests.test_retention_preserves_distinct_days_weeks_and_one_version_per_period) ... ok
+test_upload_readback_failure_preserves_older_backups (test_backup.BackupTests.test_upload_readback_failure_preserves_older_backups) ... ok
+test_actual_pg_dump_restore_preserves_rows_and_installs_quarantine (test_backup.PostgresRestoreTests.test_actual_pg_dump_restore_preserves_rows_and_installs_quarantine) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 13.831s
+
+OK

@@ -1,0 +1,18 @@
+{
+  "architecture": "x86_64",
+  "cold_render_ms": 64.722878,
+  "cpu": "AMD EPYC 7763 64-Core Processor",
+  "initialization_ms": 0.960926,
+  "jpeg_bytes": 131631,
+  "passed": true,
+  "peak_rss_kib": 164892,
+  "profile": "release",
+  "render_16mp_p95_ms": 81.17349999999999,
+  "render_max_ms": 55.859649,
+  "render_p50_ms": 52.633283000000006,
+  "render_p95_ms": 53.957283000000004,
+  "samples": 50,
+  "scope": "CPU: arte original, shaping, resize, composição e JPEG90; sem rede/LLM",
+  "target_render_ms": 150,
+  "target_rss_mib": 300
+}

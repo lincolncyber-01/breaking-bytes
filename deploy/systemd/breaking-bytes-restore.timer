@@ -1,0 +1,10 @@
+[Unit]
+Description=Teste mensal de restauração do Breaking Bytes
+
+[Timer]
+OnCalendar=*-*-01 01:00:00 America/Bahia
+Persistent=true
+Unit=breaking-bytes-restore.service
+
+[Install]
+WantedBy=timers.target

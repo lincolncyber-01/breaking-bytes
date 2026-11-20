@@ -11,6 +11,26 @@ use stories_core::{DomainError, EventState, PublicationKey};
 use thiserror::Error;
 use uuid::Uuid;
 
+mod collection;
+mod editorial;
+mod imaging;
+mod operations;
+mod publication;
+pub use operations::{ResolutionResult, ResolutionWitness, RulePage, RuleRecord};
+mod revisions;
+mod security;
+mod telemetry;
+mod token;
+pub use collection::{CollectionStats, SourceState};
+pub use editorial::{EditorialContext, EditorialOutcome, EditorialStep};
+pub use imaging::{RenderArtifact, RenderDisposition};
+pub use publication::{Publication, PublicationArtifact, PublicationPolicy, PublicationStep};
+pub use revisions::{ReviewRecord, SourceObservation, WatchContext, WatchPolicy, WatchSource};
+pub use telemetry::{
+    AlertCondition, AlertLease, Metric, MetricRow, OperationalSnapshot, SourceHealth,
+};
+pub use token::{TokenRecord, TokenRefreshLease};
+
 static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("../../migrations");
 
 #[derive(Clone)]
@@ -194,14 +214,32 @@ impl Store {
         lease: Duration,
         max_attempts: i32,
     ) -> Result<Option<Job>, StoreError> {
+        self.claim_filtered(lease, max_attempts, None).await
+    }
+
+    pub async fn claim_kind(
+        &self,
+        lease: Duration,
+        max_attempts: i32,
+        kind: &str,
+    ) -> Result<Option<Job>, StoreError> {
+        self.claim_filtered(lease, max_attempts, Some(kind)).await
+    }
+
+    async fn claim_filtered(
+        &self,
+        lease: Duration,
+        max_attempts: i32,
+        kind: Option<&str>,
+    ) -> Result<Option<Job>, StoreError> {
         if !(30..=3600).contains(&lease.as_secs()) || !(1..=20).contains(&max_attempts) {
             return Err(StoreError::InvalidOptions);
         }
         sqlx::query("UPDATE jobs SET dead_at = now(), last_error_code = 'lease_exhausted', lease_token = NULL, lease_until = NULL, locked_at = NULL WHERE done_at IS NULL AND dead_at IS NULL AND attempts >= $1 AND (lease_until IS NULL OR lease_until <= now())")
             .bind(max_attempts).execute(&self.pool).await.map_err(database_error)?;
         let lease_s = i64::try_from(lease.as_secs()).map_err(|_| StoreError::InvalidOptions)?;
-        sqlx::query_as::<_, Job>("WITH candidate AS (SELECT id FROM jobs WHERE done_at IS NULL AND dead_at IS NULL AND run_at <= now() AND attempts < $1 AND (lease_until IS NULL OR lease_until <= now()) ORDER BY run_at, id FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE jobs SET locked_at = now(), lease_until = now() + make_interval(secs => $2::double precision), lease_token = $3, attempts = attempts + 1 FROM candidate WHERE jobs.id = candidate.id RETURNING jobs.id, kind, payload, attempts, lease_token, lease_until")
-            .bind(max_attempts).bind(lease_s).bind(Uuid::new_v4())
+        sqlx::query_as::<_, Job>("WITH candidate AS (SELECT id FROM jobs WHERE done_at IS NULL AND dead_at IS NULL AND run_at <= now() AND attempts < $1 AND (lease_until IS NULL OR lease_until <= now()) AND ($4::text IS NULL OR kind = $4) AND (kind IN ('reconcile','cleanup') OR NOT (SELECT paused FROM pipeline_control WHERE id=true)) ORDER BY CASE WHEN kind='schedule' THEN COALESCE((SELECT score FROM events WHERE id=(payload->>'event_id')::bigint),0) ELSE 0 END DESC, run_at, id FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE jobs SET locked_at = now(), lease_until = now() + make_interval(secs => $2::double precision), lease_token = $3, attempts = attempts + 1 FROM candidate WHERE jobs.id = candidate.id RETURNING jobs.id, kind, payload, attempts, lease_token, lease_until")
+            .bind(max_attempts).bind(lease_s).bind(Uuid::new_v4()).bind(kind)
             .fetch_optional(&self.pool).await.map_err(database_error)
     }
 
@@ -233,11 +271,25 @@ impl Store {
         failure: JobFailure,
         max_attempts: i32,
     ) -> Result<(), StoreError> {
+        self.retry_delayed(job, failure, max_attempts, Duration::ZERO)
+            .await
+    }
+
+    pub async fn retry_delayed(
+        &self,
+        job: &Job,
+        failure: JobFailure,
+        max_attempts: i32,
+        minimum_delay: Duration,
+    ) -> Result<(), StoreError> {
         if !(1..=20).contains(&max_attempts) {
             return Err(StoreError::InvalidOptions);
         }
         let dead = job.attempts >= max_attempts || matches!(failure, JobFailure::Permanent);
-        let delay = retry_delay(job.attempts, job.lease_token.as_u128() as u64);
+        let delay = retry_delay(job.attempts, job.lease_token.as_u128() as u64).max(
+            i64::try_from(minimum_delay.as_secs().min(86_400))
+                .map_err(|_| StoreError::InvalidOptions)?,
+        );
         let affected = sqlx::query("UPDATE jobs SET lease_until = NULL, lease_token = NULL, locked_at = NULL, run_at = now() + make_interval(secs => $3::double precision), last_error_code = $4, dead_at = CASE WHEN $5 THEN now() ELSE NULL END WHERE id = $1 AND lease_token = $2 AND lease_until > now() AND done_at IS NULL AND dead_at IS NULL")
             .bind(job.id).bind(job.lease_token).bind(delay).bind(failure.code()).bind(dead)
             .execute(&self.pool).await.map_err(database_error)?.rows_affected();
@@ -298,6 +350,8 @@ fn database_error(error: sqlx::Error) -> StoreError {
 
 #[derive(Debug, Error)]
 pub enum StoreError {
+    #[error("payload do job inválido")]
+    InvalidJob,
     #[error("operação de banco falhou (SQLSTATE: {code:?})")]
     Database { code: Option<String> },
     #[error("banco excedeu o tempo limite")]

@@ -18,7 +18,14 @@ fn main() -> Result<()> {
         .with(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info,sqlx=warn")),
         )
-        .with(tracing_subscriber::fmt::layer().json().with_target(false))
+        .with(
+            tracing_subscriber::fmt::layer()
+                .json()
+                .with_target(false)
+                .with_filter(tracing_subscriber::filter::filter_fn(|metadata| {
+                    stories_app::token::log_target_allowed(metadata.target())
+                })),
+        )
         .try_init()
         .map_err(|_| anyhow::anyhow!("não foi possível inicializar os logs"))?;
     let config_path =
@@ -28,6 +35,56 @@ fn main() -> Result<()> {
     let settings = Settings::load(Path::new(&config_path), Path::new(&sources_path))?;
     if std::env::args().any(|arg| arg == "--healthcheck") {
         return healthcheck(settings.admin.bind);
+    }
+    if let Some(position) = std::env::args().position(|arg| arg == "--render-example") {
+        let args = std::env::args().collect::<Vec<_>>();
+        let path = args
+            .get(position + 1)
+            .context("informe o caminho JPEG do exemplo")?;
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()?;
+        return runtime.block_on(stories_app::imaging::example(Path::new(path)));
+    }
+    if let Some(position) = std::env::args().position(|arg| arg == "--evaluate-editorial") {
+        let args = std::env::args().collect::<Vec<_>>();
+        let input = args
+            .get(position + 1)
+            .context("informe corpus JSON e caminho do relatório")?;
+        let output = args
+            .get(position + 2)
+            .context("informe caminho do relatório")?;
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()?;
+        return runtime.block_on(stories_app::evaluation::run(
+            &settings,
+            Path::new(input),
+            Path::new(output),
+        ));
+    }
+    if std::env::args().any(|arg| arg == "--token-fingerprint") {
+        let secret = stories_config::Secret::from_environment(&settings.instagram.access_token)?;
+        let credential = stories_publisher::token::Credential::new(secret.expose())?;
+        writeln!(
+            &mut std::io::stdout().lock(),
+            "{}",
+            blake3::Hash::from_bytes(credential.fingerprint()).to_hex()
+        )
+        .context("não foi possível escrever o hash da credencial")?;
+        return Ok(());
+    }
+    if std::env::args().any(|arg| arg == "--provision-database") {
+        let database = stories_config::Secret::from_environment("env:BOOTSTRAP_DATABASE_URL")?;
+        let owner = stories_config::Secret::from_environment("env:MIGRATION_DATABASE_PASSWORD")?;
+        let worker = stories_config::Secret::from_environment("env:RUNTIME_DATABASE_PASSWORD")?;
+        let backup = stories_config::Secret::from_environment("env:BACKUP_DATABASE_PASSWORD")?;
+        return tokio::runtime::Builder::new_multi_thread().enable_all().build()?.block_on(async {
+            let store=Store::connect(database.expose(),2,Duration::from_secs(10)).await?;
+            let result=store.provision_roles(owner.expose(),worker.expose(),backup.expose()).await;
+            store.close().await;
+            result.context("provisionamento falhou; conferir usuário administrador e senhas hexadecimais por ambiente")
+        });
     }
     let secrets = settings.resolve_secrets()?;
     let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -52,21 +109,57 @@ fn main() -> Result<()> {
             .paused()
             .await
             .context("schema indisponível; execute --migrate antes de iniciar")?;
+        stories_app::observability::initialize()?;
         let listener = TcpListener::bind(settings.admin.bind)
             .await
             .context("não foi possível abrir a Admin API")?;
+        let publishing_ready=std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let token_state=std::sync::Arc::new(stories_app::token::TokenState::new(i64::from(settings.instagram.token.check_interval_s)*2+20,i64::from(settings.instagram.token.warning_days)));
+        let publisher_admin=std::sync::Arc::new(stories_app::publication::AdminPublisher::default());
         let app = router(AppState {
+        daily_cap: settings.pipeline.daily_cap,
             store: store.clone(),
-            admin_token: secrets.admin_token,
+            admin_token: secrets.admin_token.clone(),
             dry_run: settings.instagram.dry_run,
+            collection_enabled: settings.collection.enabled,
+            editorial_enabled: settings.llm.enabled,
+            imaging_enabled: settings.imaging.enabled,
+            publishing_enabled:settings.publishing.enabled,
+            corrections_enabled:settings.corrections.enabled,
+            publisher_admin:publisher_admin.clone(),
+            publishing_ready:publishing_ready.clone(),
+            token_state:token_state.clone(),
         });
+        let (stop_sender,mut server_stop)=tokio::sync::watch::channel(false);
+        let mut pipeline=tokio::spawn(stories_app::pipeline::run(settings.clone(),store.clone(),secrets,stories_app::publication::PublisherRuntime{healthy:publishing_ready,token_state,admin:publisher_admin},server_stop.clone()));
+        let signal_sender=stop_sender.clone();
+        let signal=tokio::spawn(async move{shutdown().await;let _=signal_sender.send(true);});
         tracing::info!(bind = %settings.admin.bind, dry_run = settings.instagram.dry_run,
-            phase = 1, "fundação iniciada; pipeline de notícias ainda indisponível");
-        let result = axum::serve(listener, app)
-            .with_graceful_shutdown(shutdown())
-            .await;
+            phase = 7, collection_enabled=settings.collection.enabled, editorial_enabled=settings.llm.enabled,"serviço iniciado; publicação controlada por modo e preflight");
+        let server=axum::serve(listener, app).with_graceful_shutdown(async move {
+            stories_app::collection::wait_for_stop(&mut server_stop).await;
+        });
+        let server=async move{server.await};
+        tokio::pin!(server);
+        let result=tokio::select! {
+            result=&mut server=>{
+                let _=stop_sender.send(true);
+                result.context("servidor administrativo encerrou com falha")?;
+                tokio::time::timeout(Duration::from_secs(30),&mut pipeline).await.context("shutdown excedeu 30 segundos")?
+                    .context("supervisor encerrou com panic")?
+            }
+            result=&mut pipeline=>{
+                let stopping=*stop_sender.borrow();
+                let _=stop_sender.send(true);
+                result.context("supervisor encerrou com panic")??;
+                if !stopping{anyhow::bail!("pipeline encerrou antes do servidor");}
+                tokio::time::timeout(Duration::from_secs(30),&mut server).await
+                    .context("shutdown HTTP excedeu 30 segundos")?.context("servidor encerrou com falha")
+            }
+        };
+        signal.abort();
         store.close().await;
-        result.context("servidor administrativo encerrou com falha")
+        result
     })
 }
 

@@ -1,3 +1,11 @@
+[collection]
+# Ativar somente após validar o egress e os termos das fontes.
+enabled = false
+max_response_bytes = 2097152
+max_items = 200
+per_host = 2
+user_agent = 'BreakingBytes/0.1'
+
 [pipeline]
 max_age_hours = 6
 cluster_similarity = 0.86
@@ -6,6 +14,14 @@ breaking_score = 0.80
 min_gap_seconds = 90
 max_rewrite_attempts = 2
 channel_capacity = 32
+
+[imaging]
+enabled = true
+manifest = 'images.json'
+allowed_domains = []
+artifacts_dir = 'artifacts'
+max_bytes = 8388608
+max_pixels = 16000000
 
 [database]
 url = 'env:DATABASE_URL'
@@ -25,12 +41,47 @@ api_version = 'v27.0'
 login = 'facebook'
 dry_run = true
 
+[instagram.token]
+check_interval_s = 300
+warning_days = 7
+refresh_days = 30
+auto_refresh = true
+app_id = 'env:META_APP_ID'
+inspection_token = 'env:META_INSPECTION_TOKEN'
+page_id = 'env:FB_PAGE_ID'
+oauth_receipt = 'env:IG_TOKEN_RECEIPT'
+
+[corrections]
+enabled = false
+interval_s = 300
+window_hours = 24
+high_impact_hours = 72
+high_impact_score = 0.80
+max_sources = 4
+
+[publishing]
+# Ordem: impacto, novidade, confiabilidade, alcance, urgência.
+priority_weights = [0.30, 0.20, 0.20, 0.15, 0.15]
+enabled = true
+reserved_slots = 5
+
 [storage]
 bucket = 'stories-img'
+account_id = 'env:R2_ACCOUNT_ID'
+access_key = 'env:R2_ACCESS_KEY_ID'
+secret_key = 'env:R2_SECRET_ACCESS_KEY'
 ttl_minutes = 60
 
 [llm]
+enabled = false
 # Modelo escolhido por ambiente; confirmar disponibilidade com a chave no deploy.
 model = 'claude-haiku-5-5'
 timeout_s = 15
 api_key = 'env:LLM_API_KEY'
+
+[observability]
+alerts_enabled = false
+interval_s = 60
+bot_token = 'env:TELEGRAM_BOT_TOKEN'
+chat_id = 'env:TELEGRAM_CHAT_ID'
+backups_expected = true

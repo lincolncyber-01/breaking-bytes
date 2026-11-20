@@ -11,6 +11,16 @@ use thiserror::Error;
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Settings {
+    #[serde(default)]
+    pub collection: Collection,
+    #[serde(default)]
+    pub observability: Observability,
+    #[serde(default)]
+    pub imaging: Imaging,
+    #[serde(default)]
+    pub publishing: Publishing,
+    #[serde(default)]
+    pub corrections: Corrections,
     pub pipeline: Pipeline,
     pub database: Database,
     pub admin: Admin,
@@ -19,6 +29,112 @@ pub struct Settings {
     pub llm: Llm,
     #[serde(default)]
     pub sources: Vec<Source>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Observability {
+    pub alerts_enabled: bool,
+    pub interval_s: u32,
+    pub bot_token: String,
+    pub chat_id: String,
+    pub backups_expected: bool,
+}
+impl Default for Observability {
+    fn default() -> Self {
+        Self {
+            alerts_enabled: false,
+            interval_s: 60,
+            bot_token: "env:TELEGRAM_BOT_TOKEN".into(),
+            chat_id: "env:TELEGRAM_CHAT_ID".into(),
+            backups_expected: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Corrections {
+    pub enabled: bool,
+    pub interval_s: u32,
+    pub window_hours: u32,
+    pub high_impact_hours: u32,
+    pub high_impact_score: f64,
+    pub max_sources: usize,
+}
+impl Default for Corrections {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            interval_s: 300,
+            window_hours: 24,
+            high_impact_hours: 72,
+            high_impact_score: 0.8,
+            max_sources: 4,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Publishing {
+    pub enabled: bool,
+    pub reserved_slots: u32,
+    pub priority_weights: [f64; 5],
+}
+impl Default for Publishing {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            reserved_slots: 5,
+            priority_weights: [0.30, 0.20, 0.20, 0.15, 0.15],
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Imaging {
+    pub enabled: bool,
+    pub manifest: String,
+    pub allowed_domains: Vec<String>,
+    pub artifacts_dir: String,
+    pub max_bytes: usize,
+    pub max_pixels: u64,
+}
+impl Default for Imaging {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            manifest: "images.json".into(),
+            allowed_domains: Vec::new(),
+            artifacts_dir: "artifacts".into(),
+            max_bytes: 8 * 1024 * 1024,
+            max_pixels: 16_000_000,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Collection {
+    pub enabled: bool,
+    pub max_response_bytes: usize,
+    pub max_items: usize,
+    pub per_host: usize,
+    pub user_agent: String,
+}
+
+impl Default for Collection {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            max_response_bytes: 2_097_152,
+            max_items: 200,
+            per_host: 2,
+            user_agent: "BreakingBytes/0.1".into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -58,6 +174,35 @@ pub struct Instagram {
     pub api_version: String,
     pub login: Login,
     pub dry_run: bool,
+    #[serde(default)]
+    pub token: TokenSettings,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct TokenSettings {
+    pub check_interval_s: u32,
+    pub warning_days: u32,
+    pub refresh_days: u32,
+    pub auto_refresh: bool,
+    pub app_id: String,
+    pub inspection_token: String,
+    pub page_id: String,
+    pub oauth_receipt: String,
+}
+impl Default for TokenSettings {
+    fn default() -> Self {
+        Self {
+            check_interval_s: 300,
+            warning_days: 7,
+            refresh_days: 30,
+            auto_refresh: true,
+            app_id: "env:META_APP_ID".into(),
+            inspection_token: "env:META_INSPECTION_TOKEN".into(),
+            page_id: "env:FB_PAGE_ID".into(),
+            oauth_receipt: "env:IG_TOKEN_RECEIPT".into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
@@ -72,11 +217,19 @@ pub enum Login {
 pub struct Storage {
     pub bucket: String,
     pub ttl_minutes: u32,
+    #[serde(default = "r2_account")]
+    pub account_id: String,
+    #[serde(default = "r2_access")]
+    pub access_key: String,
+    #[serde(default = "r2_secret")]
+    pub secret_key: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Llm {
+    #[serde(default)]
+    pub enabled: bool,
     pub model: String,
     pub timeout_s: u64,
     pub api_key: String,
@@ -85,6 +238,8 @@ pub struct Llm {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Source {
+    #[serde(default)]
+    pub origin_group: Option<String>,
     pub name: String,
     pub layer: String,
     pub kind: String,
@@ -93,6 +248,16 @@ pub struct Source {
     pub interval_s: u64,
     #[serde(default = "enabled_by_default")]
     pub enabled: bool,
+}
+
+fn r2_account() -> String {
+    "env:R2_ACCOUNT_ID".into()
+}
+fn r2_access() -> String {
+    "env:R2_ACCESS_KEY_ID".into()
+}
+fn r2_secret() -> String {
+    "env:R2_SECRET_ACCESS_KEY".into()
 }
 
 fn enabled_by_default() -> bool {
@@ -104,6 +269,15 @@ fn enabled_by_default() -> bool {
 pub struct Secret(String);
 
 impl Secret {
+    /// Utilitário CLI: lê somente a referência solicitada, sem exigir os outros serviços.
+    pub fn from_environment(reference: &str) -> Result<Self, ConfigError> {
+        let name = secret_name(reference)?;
+        std::env::var(name)
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+            .map(Self)
+            .ok_or_else(|| ConfigError::MissingSecret(name.into()))
+    }
     pub fn expose(&self) -> &str {
         &self.0
     }
@@ -122,6 +296,13 @@ pub struct Secrets {
     pub instagram_token: Option<Secret>,
     pub instagram_user_id: Option<Secret>,
     pub llm_key: Option<Secret>,
+    pub r2_account: Option<Secret>,
+    pub r2_access: Option<Secret>,
+    pub r2_secret: Option<Secret>,
+    pub meta_app_id: Option<Secret>,
+    pub meta_inspection_token: Option<Secret>,
+    pub facebook_page_id: Option<Secret>,
+    pub instagram_token_receipt: Option<Secret>,
 }
 
 impl Settings {
@@ -133,12 +314,24 @@ impl Settings {
                 return Err(ConfigError::TooLarge);
             }
         }
-        Self::from_figment(
+        let mut settings = Self::from_figment(
             Figment::new()
                 .merge(Toml::file(config))
                 .merge(Toml::file(sources))
                 .merge(Env::prefixed("STORIES__").split("__")),
-        )
+        )?;
+        if Path::new(&settings.imaging.manifest).is_relative() {
+            let base = config
+                .parent()
+                .filter(|p| !p.as_os_str().is_empty())
+                .unwrap_or_else(|| Path::new("."));
+            settings.imaging.manifest = base
+                .join(&settings.imaging.manifest)
+                .to_str()
+                .ok_or(ConfigError::Invalid("caminho do manifesto de imagens"))?
+                .to_owned();
+        }
+        Ok(settings)
     }
 
     pub fn from_figment(figment: Figment) -> Result<Self, ConfigError> {
@@ -148,6 +341,68 @@ impl Settings {
     }
 
     pub fn validate(&self) -> Result<(), ConfigError> {
+        if !(10..=300).contains(&self.observability.interval_s) {
+            return Err(ConfigError::Invalid("intervalo de observabilidade"));
+        }
+        secret_name(&self.observability.bot_token)?;
+        secret_name(&self.observability.chat_id)?;
+        let weights = self.publishing.priority_weights;
+        if weights
+            .iter()
+            .any(|w| !w.is_finite() || !(0.0..=1.0).contains(w))
+            || (weights.iter().sum::<f64>() - 1.0).abs() > 0.000001
+        {
+            return Err(ConfigError::Invalid("pesos de prioridade"));
+        }
+        let c = &self.corrections;
+        if !(60..=3600).contains(&c.interval_s)
+            || !(1..=72).contains(&c.window_hours)
+            || !(c.window_hours..=168).contains(&c.high_impact_hours)
+            || !c.high_impact_score.is_finite()
+            || !(0.0..=1.0).contains(&c.high_impact_score)
+            || !(1..=4).contains(&c.max_sources)
+        {
+            return Err(ConfigError::Invalid("corrections"));
+        }
+        if self.publishing.reserved_slots > 79 {
+            return Err(ConfigError::Invalid("publishing.reserved_slots"));
+        }
+        let token = &self.instagram.token;
+        if !(60..=300).contains(&token.check_interval_s)
+            || !(1..=14).contains(&token.warning_days)
+            || !(1..=30).contains(&token.refresh_days)
+        {
+            return Err(ConfigError::Invalid("instagram.token"));
+        }
+        let image = &self.imaging;
+        if !(1024..=8 * 1024 * 1024).contains(&image.max_bytes)
+            || !(1_000_000..=16_000_000).contains(&image.max_pixels)
+            || image.allowed_domains.len() > 32
+            || image.allowed_domains.iter().any(|h| {
+                h.is_empty() || h.contains('/') || h.contains('*') || h != &h.to_ascii_lowercase()
+            })
+            || [&image.manifest, &image.artifacts_dir].iter().any(|p| {
+                p.is_empty()
+                    || p.len() > 1024
+                    || p.chars().any(char::is_control)
+                    || std::path::Path::new(p)
+                        .components()
+                        .any(|c| matches!(c, std::path::Component::ParentDir))
+            })
+        {
+            return Err(ConfigError::Invalid("imaging"));
+        }
+        let c = &self.collection;
+        if !(1024..=8_388_608).contains(&c.max_response_bytes)
+            || !(1..=200).contains(&c.max_items)
+            || !(1..=4).contains(&c.per_host)
+            || !c.user_agent.starts_with("BreakingBytes/")
+            || c.user_agent.len() > 256
+            || c.user_agent.chars().any(char::is_control)
+            || self.sources.len() > 32
+        {
+            return Err(ConfigError::Invalid("collection"));
+        }
         let p = &self.pipeline;
         if !(1..=168).contains(&p.max_age_hours)
             || !(0.0..=1.0).contains(&p.cluster_similarity)
@@ -173,6 +428,13 @@ impl Settings {
             &self.instagram.user_id,
             &self.instagram.access_token,
             &self.llm.api_key,
+            &self.storage.account_id,
+            &self.storage.access_key,
+            &self.storage.secret_key,
+            &self.instagram.token.app_id,
+            &self.instagram.token.inspection_token,
+            &self.instagram.token.page_id,
+            &self.instagram.token.oauth_receipt,
         ] {
             secret_name(reference)?;
         }
@@ -186,6 +448,26 @@ impl Settings {
         }
         let mut names = HashSet::new();
         for source in &self.sources {
+            if source.name.chars().count() > 80
+                || source.name.chars().any(char::is_control)
+                || source.origin_group.as_ref().is_some_and(|v| {
+                    v.trim().is_empty() || v.len() > 80 || v.chars().any(char::is_control)
+                })
+            {
+                return Err(ConfigError::Invalid("identidade editorial da fonte"));
+            }
+            let parsed =
+                url::Url::parse(&source.url).map_err(|_| ConfigError::Invalid("sources.url"))?;
+            if parsed.host_str().is_none()
+                || !parsed.username().is_empty()
+                || parsed.password().is_some()
+            {
+                return Err(ConfigError::Invalid("sources.url"));
+            }
+            if source.enabled && source.kind == "edgar" && !self.collection.user_agent.contains('@')
+            {
+                return Err(ConfigError::Invalid("SEC exige User-Agent com contato"));
+            }
             if source.name.trim().is_empty()
                 || !names.insert(&source.name)
                 || !matches!(source.layer.as_str(), "A" | "B" | "C" | "D")
@@ -220,7 +502,7 @@ impl Settings {
                 .ok_or_else(|| ConfigError::MissingSecret(name.to_owned()))
         };
         let optional = |reference: &str| -> Result<Option<Secret>, ConfigError> {
-            if self.instagram.dry_run {
+            if self.instagram.dry_run || !self.publishing.enabled {
                 Ok(lookup(secret_name(reference)?)
                     .filter(|value| !value.trim().is_empty())
                     .map(Secret))
@@ -228,6 +510,17 @@ impl Settings {
                 required(reference).map(Some)
             }
         };
+        let supplied = |reference: &str| -> Result<Option<Secret>, ConfigError> {
+            Ok(lookup(secret_name(reference)?)
+                .filter(|v| !v.trim().is_empty())
+                .map(Secret))
+        };
+        let facebook_live = self.publishing.enabled
+            && !self.instagram.dry_run
+            && self.instagram.login == Login::Facebook;
+        let instagram_live = self.publishing.enabled
+            && !self.instagram.dry_run
+            && self.instagram.login == Login::Instagram;
         let admin_token = required(&self.admin.token)?;
         if admin_token.expose().len() < 32 {
             return Err(ConfigError::Invalid(
@@ -235,11 +528,36 @@ impl Settings {
             ));
         }
         Ok(Secrets {
+            meta_app_id: if facebook_live {
+                Some(required(&self.instagram.token.app_id)?)
+            } else {
+                supplied(&self.instagram.token.app_id)?
+            },
+            meta_inspection_token: if facebook_live {
+                Some(required(&self.instagram.token.inspection_token)?)
+            } else {
+                supplied(&self.instagram.token.inspection_token)?
+            },
+            facebook_page_id: supplied(&self.instagram.token.page_id)?,
+            instagram_token_receipt: if instagram_live {
+                Some(required(&self.instagram.token.oauth_receipt)?)
+            } else {
+                supplied(&self.instagram.token.oauth_receipt)?
+            },
             database_url: required(&self.database.url)?,
             admin_token,
+            r2_account: optional(&self.storage.account_id)?,
+            r2_access: optional(&self.storage.access_key)?,
+            r2_secret: optional(&self.storage.secret_key)?,
             instagram_token: optional(&self.instagram.access_token)?,
             instagram_user_id: optional(&self.instagram.user_id)?,
-            llm_key: optional(&self.llm.api_key)?,
+            llm_key: if self.llm.enabled {
+                Some(required(&self.llm.api_key)?)
+            } else {
+                lookup(secret_name(&self.llm.api_key)?)
+                    .filter(|v| !v.trim().is_empty())
+                    .map(Secret)
+            },
         })
     }
 }

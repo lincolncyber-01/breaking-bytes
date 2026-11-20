@@ -1,0 +1,40 @@
+[package]
+name = "stories-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[workspace]
+members = ["."]
+resolver = "3"
+
+[dependencies]
+libfuzzer-sys = "=0.4.13"
+stories-collectors = { path = "../crates/collectors", version = "=0.1.0" }
+stories-normalize = { path = "../crates/normalize", version = "=0.1.0" }
+stories-imaging = { path = "../crates/imaging", version = "=0.1.0" }
+url = "=2.5.8"
+
+[[bin]]
+name = "feed"
+path = "fuzz_targets/feed.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "html"
+path = "fuzz_targets/html.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "image"
+path = "fuzz_targets/image.rs"
+test = false
+doc = false
+bench = false

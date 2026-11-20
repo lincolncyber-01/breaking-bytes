@@ -4,12 +4,12 @@ services:
     image: pgvector/pgvector:0.8.2-pg16@sha256:00ba258a66dac104fd5171074a0084462a64a1369d8513f3d0a634e2f24d15bc
     environment:
       POSTGRES_DB: stories
-      POSTGRES_USER: stories
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no ambiente}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: [CMD-SHELL, 'pg_isready -U stories -d stories']
+      test: [CMD-SHELL, 'pg_isready -U postgres -d stories']
       interval: 5s
       timeout: 3s
       retries: 12
@@ -22,13 +22,13 @@ services:
         max-size: 10m
         max-file: '3'
   migrate:
-    image: breaking-bytes:local
+    image: ${STORIES_IMAGE:-breaking-bytes:local}
     build:
       context: ..
       dockerfile: deploy/Dockerfile
     command: [--migrate]
     environment:
-      DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL com host postgres}
+      DATABASE_URL: ${MIGRATION_DATABASE_URL:-${DATABASE_URL:?Defina DATABASE_URL com host postgres}}
       ADMIN_TOKEN: ${ADMIN_TOKEN:?Defina ADMIN_TOKEN}
     depends_on:
       postgres:
@@ -38,11 +38,36 @@ services:
     security_opt: [no-new-privileges:true]
     mem_limit: 256m
   app:
-    image: breaking-bytes:local
+    image: ${STORIES_IMAGE:-breaking-bytes:local}
     environment:
       DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL com host postgres}
       ADMIN_TOKEN: ${ADMIN_TOKEN:?Defina ADMIN_TOKEN}
       STORIES__ADMIN__BIND: 0.0.0.0:8080
+      IG_USER_ID: ${IG_USER_ID:-}
+      IG_ACCESS_TOKEN: ${IG_ACCESS_TOKEN:-}
+      META_APP_ID: ${META_APP_ID:-}
+      META_INSPECTION_TOKEN: ${META_INSPECTION_TOKEN:-}
+      FB_PAGE_ID: ${FB_PAGE_ID:-}
+      IG_TOKEN_RECEIPT: ${IG_TOKEN_RECEIPT:-}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      STORIES__OBSERVABILITY__ALERTS_ENABLED: ${STORIES__OBSERVABILITY__ALERTS_ENABLED:-false}
+      STORIES__OBSERVABILITY__BACKUPS_EXPECTED: ${STORIES__OBSERVABILITY__BACKUPS_EXPECTED:-true}
+      STORIES__PIPELINE__DAILY_CAP: ${STORIES__PIPELINE__DAILY_CAP:-40}
+      STORIES__PUBLISHING__RESERVED_SLOTS: ${STORIES__PUBLISHING__RESERVED_SLOTS:-5}
+      STORIES__PUBLISHING__ENABLED: ${STORIES__PUBLISHING__ENABLED:-true}
+      STORIES__IMAGING__ENABLED: ${STORIES__IMAGING__ENABLED:-true}
+      STORIES__INSTAGRAM__DRY_RUN: ${STORIES__INSTAGRAM__DRY_RUN:-true}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      STORIES__LLM__ENABLED: ${STORIES__LLM__ENABLED:-false}
+      STORIES__CORRECTIONS__ENABLED: ${STORIES__CORRECTIONS__ENABLED:-false}
+      STORIES__COLLECTION__ENABLED: ${STORIES__COLLECTION__ENABLED:-false}
+    volumes:
+      - story-artifacts:/app/artifacts
+      - ../config:/app/config:ro
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -67,3 +92,4 @@ services:
         max-file: '3'
 volumes:
   postgres-data:
+  story-artifacts:

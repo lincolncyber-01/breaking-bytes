@@ -1,0 +1,98 @@
+[
+  {
+    "name": "short",
+    "draft": {
+      "title": "Rust lança versão 1.100",
+      "summary": [
+        "A versão estável chega com correções.",
+        "Os detalhes estão no anúncio oficial."
+      ],
+      "source": "Rust Blog",
+      "kind": "new",
+      "entities": [
+        "Rust"
+      ],
+      "language": "pt-BR"
+    }
+  },
+  {
+    "name": "long",
+    "draft": {
+      "title": "Pesquisadores brasileiros apresentam avanços em processadores quânticos",
+      "summary": [
+        "A versão estável chega com correções.",
+        "Os detalhes estão no anúncio oficial."
+      ],
+      "source": "Rust Blog",
+      "kind": "new",
+      "entities": [
+        "Rust"
+      ],
+      "language": "pt-BR"
+    }
+  },
+  {
+    "name": "update",
+    "draft": {
+      "title": "Rust atualiza detalhes do lançamento",
+      "summary": [
+        "A versão estável chega com correções.",
+        "Os detalhes estão no anúncio oficial."
+      ],
+      "source": "Rust Blog",
+      "kind": "update",
+      "entities": [
+        "Rust"
+      ],
+      "language": "pt-BR"
+    }
+  },
+  {
+    "name": "correction",
+    "draft": {
+      "title": "Rust corrige informação sobre a versão",
+      "summary": [
+        "A versão estável chega com correções.",
+        "Os detalhes estão no anúncio oficial."
+      ],
+      "source": "Rust Blog",
+      "kind": "correction",
+      "entities": [
+        "Rust"
+      ],
+      "language": "pt-BR"
+    }
+  },
+  {
+    "name": "accents",
+    "draft": {
+      "title": "Ciência brasileira avança na computação quântica",
+      "summary": [
+        "A versão estável chega com correções.",
+        "Os detalhes estão no anúncio oficial."
+      ],
+      "source": "Rust Blog",
+      "kind": "new",
+      "entities": [
+        "Rust"
+      ],
+      "language": "pt-BR"
+    }
+  },
+  {
+    "name": "shrink",
+    "draft": {
+      "title": "WWWWWWWWWWWWWWW",
+      "summary": [
+        "A versão estável chega com correções.",
+        "Os detalhes estão no anúncio oficial."
+      ],
+      "source": "Rust Blog",
+      "kind": "new",
+      "entities": [
+        "Rust"
+      ],
+      "language": "pt-BR"
+    }
+  }
+]

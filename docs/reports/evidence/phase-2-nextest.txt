@@ -1,0 +1,39 @@
+   Compiling stories-store v0.1.0 (/workspace/work/breaking-bytes/crates/store)
+   Compiling stories-app v0.1.0 (/workspace/work/breaking-bytes/crates/app)
+    Finished `test` profile [unoptimized] target(s) in 6.36s
+────────────
+ Nextest run ID 32e6d1e5-a12c-46a0-8182-da2bc0b76092 with nextest profile: default
+    Starting 31 tests across 15 binaries
+        PASS [   0.003s] ( 1/31) stories-app collection::tests::circuit_breaker_waits_and_honors_rate_limit
+        PASS [   6.224s] ( 2/31) stories-app::admin health_auth_pause_and_fail_closed_readiness
+        PASS [   2.888s] ( 3/31) stories-cluster::clustering formatting_changes_do_not_create_a_new_event
+        PASS [   0.030s] ( 4/31) stories-cluster::clustering separates_unrelated_announcements_and_marks_new_facts
+        PASS [   0.177s] ( 5/31) stories-cluster::clustering similarity_is_symmetric_and_bounded
+        PASS [   0.024s] ( 6/31) stories-collectors tests::atom_contract_matches_edgar_and_regular_feeds
+        PASS [   0.066s] ( 7/31) stories-collectors tests::feed_contract_conditional_requests_and_age_filter
+        PASS [   0.051s] ( 8/31) stories-collectors tests::hackernews_uses_item_endpoint_and_filters_dead_items
+        PASS [   0.006s] ( 9/31) stories-collectors tests::json_and_xml_contracts_reject_malformed_input
+        PASS [   0.047s] (10/31) stories-collectors tests::robots_limits_rate_limit_and_redirect_contracts
+        PASS [   0.007s] (11/31) stories-collectors tests::ssrf_blocks_special_networks_and_literal_bypasses
+        PASS [   1.069s] (12/31) stories-collectors tests::transient_failures_timeout_and_redirect_rules
+        PASS [   0.027s] (13/31) stories-config::settings bounds_and_plaintext_credentials_are_rejected
+        PASS [   0.007s] (14/31) stories-config::settings dry_run_needs_no_external_credentials_and_redacts_secrets
+        PASS [   0.008s] (15/31) stories-config::settings live_mode_requires_external_credentials
+        PASS [   0.005s] (16/31) stories-config::settings unknown_fields_and_short_admin_tokens_fail
+        PASS [   0.014s] (17/31) stories-core::domain no_state_can_transition_to_itself
+        PASS [   0.005s] (18/31) stories-core::domain pipeline_requires_every_gate
+        PASS [   0.012s] (19/31) stories-core::domain publication_key_is_stable
+        PASS [   0.011s] (20/31) stories-core::domain publication_keys_reject_invalid_ranges
+        PASS [   0.004s] (21/31) stories-core::domain publication_kinds_match_sql_values
+        PASS [   0.003s] (22/31) stories-core::domain rejection_requires_a_reason_and_preserves_published_events
+        PASS [   0.003s] (23/31) stories-core::domain state_names_match_storage
+        PASS [   0.003s] (24/31) stories-core::domain terminal_states_cannot_be_reopened
+        PASS [   0.070s] (25/31) stories-normalize::normalization canonicalization_is_idempotent
+        PASS [   0.005s] (26/31) stories-normalize::normalization canonicalization_preserves_article_parameters
+        PASS [   0.015s] (27/31) stories-normalize::normalization extraction_keeps_versions_and_accent_equivalence
+        PASS [   0.006s] (28/31) stories-normalize::normalization html_canonical_metadata_and_invisible_content
+        PASS [   7.573s] (29/31) stories-store::collection atomic_ingest_concurrent_clustering_updates_and_burst
+        PASS [   0.006s] (30/31) stories-store::postgres exponential_backoff_has_bounded_jitter
+        PASS [   5.510s] (31/31) stories-store::postgres postgres_outbox_leases_and_publication_uniqueness
+────────────
+     Summary [  23.892s] 31 tests run: 31 passed, 0 skipped

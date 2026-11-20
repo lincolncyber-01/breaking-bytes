@@ -1,18 +1,24 @@
 name: CI
 on:
   push:
+    branches: [main]
   pull_request:
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: '1'
+  CARGO_BUILD_JOBS: '2'
+  CARGO_INCREMENTAL: '0'
 jobs:
   quality:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Instalar toolchain fixa
         run: rustup toolchain install 1.100.0 --profile minimal --component clippy --component rustfmt
       - name: Instalar nextest fixo com checksum
@@ -21,17 +27,59 @@ jobs:
           echo 'd039b43c3e0958441b6ad0a39c8884d018b3d2e8fb9928f209074b1100b5e17a  nextest.tar.gz' | sha256sum --check
           tar -xzf nextest.tar.gz -C "$HOME/.cargo/bin" cargo-nextest
       - run: cargo fmt --check
-      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
-      - run: cargo nextest run --workspace --locked
+      - name: Verificar APIs e Clippy
+        run: |
+          cargo check --workspace --all-targets --all-features --locked
+          cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+      - run: cargo nextest run --workspace --all-features --locked
+        env:
+          STORIES_IDLE_MEMORY_BENCHMARK: ${{ github.workspace }}/artifacts/app-idle-memory.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: app-idle-memory
+          path: artifacts/app-idle-memory.json
       - name: Compilar release
         run: cargo build --release --locked
       - name: Construir imagem
-        run: docker build -f deploy/Dockerfile -t breaking-bytes:ci .
+        run: docker build --label "org.opencontainers.image.revision=$GITHUB_SHA" -f deploy/Dockerfile -t breaking-bytes:ci .
+      - name: Render offline na imagem sem rede e sem escrita no sistema
+        run: docker run --rm --network none --read-only --tmpfs /app/artifacts:rw,uid=65532,gid=65532,size=16m breaking-bytes:ci --render-example /app/artifacts/example.jpg
+      - name: Rollout e rollback com Compose e Postgres reais
+        run: python3 deploy/integration/rollout.py --image breaking-bytes:ci --report artifacts/rollout.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: compose-rollout
+          path: artifacts/rollout.json
   domain-coverage:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: rustup toolchain install 1.100.0 --profile minimal --component llvm-tools-preview
       - run: cargo install cargo-llvm-cov --version 0.9.1 --locked
-      - run: cargo llvm-cov --package stories-core --locked --fail-under-lines 80 --lcov --output-path lcov.info
+      - run: cargo llvm-cov --package stories-core --package stories-normalize --package stories-cluster --package stories-verify --package stories-editorial --package stories-imaging --package stories-scheduler --package stories-publisher --locked --fail-under-lines 80 --lcov --output-path lcov.info
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: domain-coverage
+          path: lcov.info
+  render-performance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: rustup toolchain install 1.100.0 --profile minimal
+      - run: cargo bench --package stories-imaging --bench story --locked -- --warm-up-time 1 --measurement-time 3 --sample-size 20 --noplot
+      - run: cargo run --release --locked --package stories-imaging --example benchmark -- artifacts/benchmark.json
+      - name: Medir captura HTTP de contrato e clusterização Postgres
+        run: |
+          STORIES_DETECTION_BENCHMARK="$GITHUB_WORKSPACE/artifacts/detection.json" cargo test --release --package stories-collectors --locked simulated_detection_benchmark -- --nocapture
+          STORIES_CLUSTER_BENCHMARK="$GITHUB_WORKSPACE/artifacts/clustering.json" cargo test --release --package stories-store --test collection --locked atomic_ingest_concurrent_clustering_updates_and_burst -- --nocapture
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: render-benchmark
+          path: |
+            artifacts/benchmark.json
+            artifacts/detection.json
+            artifacts/clustering.json

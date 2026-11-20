@@ -1,0 +1,1 @@
+{"status":"clientes_s3_e_sigv4_verificados","requests":4,"network":"somente_loopback","client":"AWS CLI 2.39.6 oficial sem readline/_uuid e suas bibliotecas privadas","scope":"PUT/GET/list/DELETE reais contra HTTP local, sem R2 real"}

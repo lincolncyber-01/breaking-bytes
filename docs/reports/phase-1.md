@@ -1,7 +1,11 @@
 # Relatório da fase 1 — Fundação
 
 Data: 16/11/2026. Repositório de destino: lincolncyber-01/breaking-bytes.
-Estado: implementação e portões locais aprovados; portão de CI remoto pendente.
+Estado: implementação e portões locais/remotos aprovados; integrada à main.
+
+A execução remota confirmou testes, cobertura, release e Docker:
+https://github.com/lincolncyber-01/breaking-bytes/actions/runs/43990961832
+Os registros abaixo preservam os resultados locais e as pendências daquele momento.
 
 ## O que foi implementado
 

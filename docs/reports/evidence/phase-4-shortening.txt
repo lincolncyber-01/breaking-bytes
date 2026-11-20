@@ -1,0 +1,30 @@
+   Compiling hyper v1.12.0
+   Compiling zerocopy v0.8.63
+   Compiling hyper-util v0.1.21
+   Compiling hyper-rustls v0.27.10
+   Compiling axum v0.8.9
+   Compiling reqwest v0.13.5
+   Compiling hyper-timeout v0.5.2
+   Compiling hyperlocal v0.9.1
+   Compiling stories-collectors v0.1.0 (/workspace/work/breaking-bytes/crates/collectors)
+   Compiling ahash v0.8.12
+   Compiling jsonschema-value v0.61.2
+   Compiling referencing v0.61.2
+   Compiling jsonschema v0.61.2
+   Compiling tonic v0.14.9
+   Compiling tonic-prost v0.14.9
+   Compiling bollard-buildkit-proto v0.8.1
+   Compiling bollard-stubs v1.53.1-rc.29.3.1
+   Compiling stories-editorial v0.1.0 (/workspace/work/breaking-bytes/crates/editorial)
+   Compiling stories-imaging v0.1.0 (/workspace/work/breaking-bytes/crates/imaging)
+   Compiling stories-store v0.1.0 (/workspace/work/breaking-bytes/crates/store)
+   Compiling stories-app v0.1.0 (/workspace/work/breaking-bytes/crates/app)
+   Compiling bollard v0.21.1
+   Compiling testcontainers v0.28.0
+    Finished `test` profile [unoptimized] target(s) in 40.79s
+────────────
+ Nextest run ID 8cf6f2f0-e346-417d-b8b8-aae2cd4959fb with nextest profile: default
+    Starting 1 test across 3 binaries (5 tests skipped)
+        PASS [   5.742s] (1/1) stories-app editorial::tests::durable_editorial_rewrites_retries_resume_and_revision_fencing
+────────────
+     Summary [   5.744s] 1 test run: 1 passed, 5 skipped

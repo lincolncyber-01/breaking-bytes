@@ -1,0 +1,8 @@
+{
+  "checked_at": "2026-11-20T17:29:43.135814+00:00",
+  "official_stable": "1.100.0 (0ef1bc386 2026-11-09)",
+  "manifest_date": "2026-11-12",
+  "rustc": "rustc 1.100.0 (0ef1bc386 2026-11-09)",
+  "cargo": "cargo 1.100.0 (3acc79c0c 2026-11-05)",
+  "nextest": "cargo-nextest 0.9.152 (26ebeda79 2026-11-13)\nrelease: 0.9.152\ncommit-hash: 26ebeda79b9ae1d008cf64ddb01984bcaa6e1239\ncommit-date: 2026-11-13\nhost: x86_64-unknown-linux-gnu"
+}

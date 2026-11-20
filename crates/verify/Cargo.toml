@@ -1,0 +1,23 @@
+[package]
+name = "stories-verify"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde_json.workspace = true
+blake3.workspace = true
+chrono.workspace = true
+psl.workspace = true
+serde.workspace = true
+stories-normalize.workspace = true
+thiserror.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true

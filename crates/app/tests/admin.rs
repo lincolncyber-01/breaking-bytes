@@ -46,18 +46,55 @@ async fn health_auth_pause_and_fail_closed_readiness() -> Result<(), Box<dyn std
         _ => None,
     })?;
     let state = AppState {
+        daily_cap: 40,
+        token_state: std::sync::Arc::new(stories_app::token::TokenState::default()),
+        publishing_enabled: true,
+        corrections_enabled: false,
+        publisher_admin: std::sync::Arc::new(stories_app::publication::AdminPublisher::default()),
+        publishing_ready: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        editorial_enabled: false,
+        imaging_enabled: false,
         store: store.clone(),
         admin_token: secrets.admin_token,
         dry_run: true,
+        collection_enabled: false,
     };
     let app = router(state.clone());
-    for path in ["/health/live", "/health/ready"] {
+    for path in ["/health/live", "/health/ready", "/metrics"] {
         let response = app
             .clone()
             .oneshot(Request::builder().uri(path).body(Body::empty())?)
             .await?;
         assert_eq!(response.status(), StatusCode::OK);
     }
+    let stats = app
+        .clone()
+        .oneshot(Request::builder().uri("/admin/stats").body(Body::empty())?)
+        .await?;
+    assert_eq!(stats.status(), StatusCode::UNAUTHORIZED);
+    let stats = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/admin/stats")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())?,
+        )
+        .await?;
+    assert_eq!(stats.status(), StatusCode::OK);
+    let status = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/admin/status")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())?,
+        )
+        .await?;
+    assert_eq!(status.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(status.into_body(), 16384).await?;
+    let status: serde_json::Value = serde_json::from_slice(&bytes)?;
+    assert_eq!(status["daily_cap"], 40);
     for value in [None, Some("Bearer errado"), Some("Basic dGVzdA==")] {
         let mut request = Request::builder().uri("/admin/status");
         if let Some(value) = value {
@@ -135,6 +172,7 @@ async fn exercise_binary(
             .env("DATABASE_URL", url)
             .env("ADMIN_TOKEN", token)
             .env("RUST_LOG", "info,sqlx=warn")
+            .env("STORIES__COLLECTION__ENABLED", "false")
             .env("STORIES_CONFIG", root.join("config/exemplo.toml"))
             .env("STORIES_SOURCES", root.join("config/sources.toml"))
             .env("STORIES__ADMIN__BIND", address.to_string())
@@ -157,6 +195,23 @@ async fn exercise_binary(
         }
     })
     .await??;
+    if let Some(destination) = std::env::var_os("STORIES_IDLE_MEMORY_BENCHMARK") {
+        sleep(Duration::from_secs(1)).await;
+        let status = tokio::fs::read_to_string(format!("/proc/{pid}/status")).await?;
+        let value = |key: &str| {
+            status.lines().find_map(|line| {
+                line.strip_prefix(key)
+                    .and_then(|s| s.split_whitespace().next())
+                    .and_then(|s| s.parse::<u64>().ok())
+            })
+        };
+        let report = serde_json::json!({"scope":"Binário real ocioso após readiness em dry_run, com renderizador e observabilidade; sem carga editorial ou APIs reais","profile":if cfg!(debug_assertions){"debug"}else{"release"},"rss_kib":value("VmRSS:"),"peak_rss_kib":value("VmHWM:")});
+        let destination = std::path::Path::new(&destination);
+        if let Some(parent) = destination.parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+        tokio::fs::write(destination, serde_json::to_vec_pretty(&report)?).await?;
+    }
     let killed = timeout(
         Duration::from_secs(2),
         Command::new("kill")
@@ -182,5 +237,30 @@ async fn exercise_binary(
     for line in stdout.lines() {
         let _: serde_json::Value = serde_json::from_str(line)?;
     }
+    Ok(())
+}
+
+#[tokio::test]
+async fn fingerprint_cli_uses_only_environment_and_never_prints_token()
+-> Result<(), Box<dyn std::error::Error>> {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let token = "fixture-credential-only-for-cli";
+    let output = tokio::time::timeout(
+        Duration::from_secs(5),
+        tokio::process::Command::new(env!("CARGO_BIN_EXE_stories-tech"))
+            .env_clear()
+            .env("IG_ACCESS_TOKEN", token)
+            .env("STORIES_CONFIG", root.join("config/exemplo.toml"))
+            .env("STORIES_SOURCES", root.join("config/sources.toml"))
+            .arg("--token-fingerprint")
+            .output(),
+    )
+    .await??;
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout)?.trim(),
+        blake3::hash(token.as_bytes()).to_hex().as_str()
+    );
+    assert!(!String::from_utf8(output.stderr)?.contains(token));
     Ok(())
 }
