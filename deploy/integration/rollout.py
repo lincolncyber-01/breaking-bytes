@@ -2,6 +2,7 @@
 """Exercita rollout real em Compose descartável e rede interna, sem publicar."""
 import argparse
 import datetime as dt
+import hashlib
 from http.client import HTTPResponse
 import io
 import json
@@ -10,6 +11,7 @@ from pathlib import Path
 import re
 import secrets
 import shutil
+import subprocess
 import sys
 import tempfile
 import time
@@ -35,6 +37,7 @@ class LocalImages(Runner):
         self.commands = []
         self.failed_command = None
         self.shutdown_codes = []
+        self.sanitized_error = None
 
     def run(self, arguments, environment=None, timeout=120, capture=False, input_data=None):
         require(not any(secret in argument for secret in self.private_values for argument in arguments),
@@ -57,7 +60,20 @@ class LocalImages(Runner):
                         environment, timeout=15, capture=True)
             return ''
         try:
-            result = super().run(arguments, environment, timeout, capture, input_data)
+            with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
+                process = subprocess.run(arguments, env=environment, input=input_data,
+                                         stdout=stdout, stderr=stderr, timeout=timeout)
+                if process.returncode:
+                    stderr.seek(0)
+                    message = stderr.read(65536).decode('utf-8', errors='replace')
+                    for value in self.private_values:
+                        message = message.replace(value, '[redigido]')
+                    self.sanitized_error = message
+                    raise OperationError('comando_operacional_falhou')
+                stdout.seek(0)
+                raw = stdout.read(65537) if capture else b''
+                require(len(raw) <= 65536, 'resposta_de_comando_excessiva')
+                result = raw.decode()
             if arguments[:2] == ['docker', 'compose'] and 'stop' in arguments and arguments[-1] == 'app':
                 prefix = arguments[:arguments.index('stop')]
                 container = self.run([*prefix, 'ps', '-a', '-q', 'app'], environment, capture=True).strip()
@@ -65,9 +81,9 @@ class LocalImages(Runner):
                     code = self.run(['docker', 'inspect', '--format', '{{.State.ExitCode}}', container], environment, capture=True)
                     self.shutdown_codes.append(int(code))
             return result
-        except OperationError:
+        except (OperationError, OSError, subprocess.SubprocessError, UnicodeError):
             self.failed_command = arguments
-            raise
+            raise OperationError('comando_operacional_falhou') from None
 
 class BoundedAdmin(Admin):
     """HTTP real na rede interna, sem publicar porta nem passar token em argv."""
@@ -129,6 +145,10 @@ def source_fixture(root, postgres_image):
         content, changes = re.subn(r'(?m)^    image: pgvector/\S+$',
                                    '    image: ' + postgres_image, content)
         require(changes == 1, 'imagem_postgres_nao_identificada')
+        content = content.replace('      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no ambiente}',
+                                  '      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no ambiente}\n'
+                                  '      POSTGRES_HOST_AUTH_METHOD: scram-sha-256\n'
+                                  '      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256')
     content += '\nnetworks:\n  default:\n    internal: true\n'
     (source / 'deploy/docker-compose.yml').write_text(content)
     shutil.copytree(ROOT / 'config', source / 'config')
@@ -141,7 +161,8 @@ def run(image, postgres_image, report_path):
     if postgres_image:
         require(re.fullmatch(r'[a-z0-9][a-z0-9._/:@-]{0,250}', postgres_image) is not None,
                 'imagem_postgres_invalida')
-    report = {'schema': 1, 'scope': 'Compose e Postgres reais, imagens locais; sem GHCR/Meta/R2 reais',
+    report = {'schema': 1, 'driver_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+              'scope': 'Compose e Postgres reais, imagens locais; sem GHCR/Meta/R2 reais',
               'started_at': dt.datetime.now(dt.timezone.utc).isoformat(), 'passed': False,
               'checks': [], 'failure_code': None}
     started = time.monotonic()
@@ -153,7 +174,8 @@ def run(image, postgres_image, report_path):
         second_image = project + ':second'
         private = {name: secrets.token_hex(32) for name in [
             'POSTGRES_PASSWORD', 'MIGRATION_DATABASE_PASSWORD', 'RUNTIME_DATABASE_PASSWORD',
-            'BACKUP_DATABASE_PASSWORD', 'ADMIN_TOKEN', 'ROLLOUT_WRONG_ADMIN_TOKEN']}
+            'BACKUP_DATABASE_PASSWORD', 'ADMIN_TOKEN', 'ROLLOUT_WRONG_ADMIN_TOKEN',
+            'ROLLOUT_WRONG_DATABASE_PASSWORD']}
         docker_config = root / 'docker-config'
         docker_config.mkdir(mode=0o700)
         (docker_config / 'config.json').write_text('{"auths":{}}')
@@ -223,6 +245,18 @@ def run(image, postgres_image, report_path):
             deployment.postgres(initial, ['-c', "INSERT INTO audit_log(step,detail) VALUES('rollout_fixture','{\"preserve\":true}')"])
             require(deployment.postgres(initial, ['-c', "SELECT current_user"], read_only=True).strip() == 'stories_runtime',
                     'consulta_usou_papel_administrativo')
+            correct_database = deployment.environment['DATABASE_URL']
+            deployment.environment['DATABASE_URL'] = 'postgres://stories_runtime:' + private['ROLLOUT_WRONG_DATABASE_PASSWORD'] + '@postgres/stories'
+            try:
+                deployment.postgres(initial, ['-c', 'SELECT 1'], read_only=True)
+            except OperationError:
+                pass
+            else:
+                raise OperationError('senha_invalida_foi_aceita')
+            finally:
+                deployment.environment['DATABASE_URL'] = correct_database
+            runner.failed_command = None
+            runner.sanitized_error = None
             hardening = json.loads(runner.run(['docker', 'inspect', '--format', '{{json .HostConfig}}', initial['container_id']], environment, capture=True))
             require(hardening['ReadonlyRootfs'] is True and 'ALL' in hardening['CapDrop'], 'container_sem_hardening')
             user = runner.run(['docker', 'inspect', '--format', '{{.Config.User}}', initial['container_id']], environment, capture=True).strip()
@@ -287,6 +321,7 @@ def run(image, postgres_image, report_path):
         except (OperationError, OSError, ValueError, KeyError, TypeError):
             report['failure_code'] = stage
             report['failed_command'] = runner.failed_command
+            report['sanitized_command_error'] = runner.sanitized_error
             report['probes'] = admin.probes[-12:]
             try:
                 raw_logs = runner.run([*command, 'logs', '--no-color', '--tail', '30', 'app'], environment, capture=True)
