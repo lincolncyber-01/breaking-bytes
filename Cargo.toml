@@ -11,6 +11,7 @@ publish = false
 repository = "https://github.com/lincolncyber-01/breaking-bytes"
 
 [workspace.dependencies]
+insta = { version = "=1.49.0", default-features = false, features = ["json"] }
 metrics = "=0.24.6"
 metrics-exporter-prometheus = { version = "=0.18.3", default-features = false }
 httpdate = "=1.0.3"

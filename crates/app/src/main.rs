@@ -135,7 +135,7 @@ fn main() -> Result<()> {
         let signal_sender=stop_sender.clone();
         let signal=tokio::spawn(async move{shutdown().await;let _=signal_sender.send(true);});
         tracing::info!(bind = %settings.admin.bind, dry_run = settings.instagram.dry_run,
-            phase = 6, collection_enabled=settings.collection.enabled, editorial_enabled=settings.llm.enabled,"serviço iniciado; publicação controlada por modo e preflight");
+            phase = 7, collection_enabled=settings.collection.enabled, editorial_enabled=settings.llm.enabled,"serviço iniciado; publicação controlada por modo e preflight");
         let server=axum::serve(listener, app).with_graceful_shutdown(async move {
             stories_app::collection::wait_for_stop(&mut server_stop).await;
         });

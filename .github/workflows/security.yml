@@ -38,6 +38,8 @@ jobs:
           echo '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  /tmp/actionlint.tar.gz' | sha256sum --check
           tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
           /tmp/actionlint -shellcheck= -pyflakes=
+      - name: Contratos de lançamento sem serviços externos
+        run: OPERATIONS_INTEGRATION=1 python3 -m unittest discover -s deploy/scripts -p 'test_*.py' -v
       - name: Contratos e restauração real em clusters separados
         run: BACKUP_INTEGRATION=1 python3 -m unittest discover -s deploy/backup -p test_backup.py -v
       - name: Construir ferramentas operacionais e conferir versões
@@ -64,8 +66,13 @@ jobs:
           MIGRATION_DATABASE_PASSWORD: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           RUNTIME_DATABASE_PASSWORD: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
           BACKUP_DATABASE_PASSWORD: cccccccccccccccccccccccccccccccc
+          STAGING_POSTGRES_PASSWORD: contract-only-staging
+          STAGING_DATABASE_URL: postgres://stories_runtime:contract-only-staging@postgres/stories
+          STAGING_MIGRATION_DATABASE_URL: postgres://stories_owner:contract-only-staging@postgres/stories
+          STAGING_ADMIN_TOKEN: contract-only-staging-token-with-32-bytes
         run: |
           docker compose -f deploy/docker-compose.yml config --quiet
+          docker compose -f deploy/docker-compose.yml -f deploy/staging-compose.yml config --quiet
           docker compose -f deploy/docker-compose.yml -f deploy/monitoring/compose.yml config --quiet
           docker compose -f deploy/docker-compose.yml -f deploy/caddy-compose.yml config --quiet
           docker compose -f deploy/backup/compose.yml config --quiet

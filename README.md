@@ -5,11 +5,12 @@ partir do [blueprint](docs/blueprint.pdf). Um binário, doze crates, Postgres co
 outbox, captura, verificação, redação, renderização e publicação reconciliada.
 O padrão é `dry_run=true`: simulações nunca recebem um ID de mídia real.
 
-As fases 1–6 têm implementação e testes; o empacotamento operacional da fase 6
-está na verificação final. **Não existe aceite de produção ou implantação real
-nesta entrega.** Credenciais, corpus real, observações de 24/48/72 horas e os SLOs
-ainda exigem validação no destino. [Matriz de requisitos](docs/requirements.md),
-[relatórios](docs/reports/phase-6.md), [benchmarks](docs/reports/benchmarks.md) e
+As sete fases têm código, testes e procedimentos de entrega. **O aceite de
+produção e a implantação real permanecem pendentes.** Credenciais, corpus real,
+observações de 24/48/72 horas e os SLOs exigem validação no destino.
+[Relatório de entrega](docs/reports/final.md),
+[matriz de requisitos](docs/requirements.md),
+[lançamento](docs/launch.md), [benchmarks](docs/reports/benchmarks.md) e
 [decisões](docs/adr/001-fundacao.md) registram evidências e desvios.
 
 ## Executar localmente
@@ -76,7 +77,8 @@ publica porta no host; a API publica somente em 127.0.0.1:8080. Leia o
 Template 1080×1920, JPEG90, preto, Inter embutida, margens e tipografia do
 blueprint. Texto nunca é truncado: redução limitada a 10%, depois reescrita,
 respeitando o orçamento global de duas tentativas. Seis referências visuais são
-comparadas por pixels. O exemplo é sintético e dispensa banco/rede/credenciais:
+comparadas por pixels e por snapshots Insta do layout. O exemplo é sintético e
+dispensa banco/rede/credenciais:
 
 ```sh
 cargo run --locked --bin stories-tech -- --render-example artifacts/example.jpg
@@ -125,6 +127,7 @@ Grafana e Prometheus têm bind local. A reconsulta/correção é optativa, com j
 cargo fmt --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo nextest run --workspace --all-features --locked
+OPERATIONS_INTEGRATION=1 python3 -m unittest discover -s deploy/scripts -p 'test_*.py' -v
 BACKUP_INTEGRATION=1 python3 -m unittest discover -s deploy/backup -p test_backup.py -v
 python3 -m unittest discover -s tools -p 'test_*.py' -v
 ```
@@ -137,3 +140,19 @@ Três avisos de manutenção têm exceções exatas até 17/12/2026, com valida�
 fonte oficial e revisão obrigatória; nenhum CVE recebeu exceção.
 [ADR-017](docs/adr/017-seguranca-dependencias.md) e
 [ADR-018](docs/adr/018-auditoria-do-binario-e-backup-minimo.md) explicam o escopo.
+
+## Entrega e implantação
+
+O [guia de lançamento](docs/launch.md) descreve release versionado no GHCR,
+bootstrap, staging isolado, coleta de 24 h, dry-run de 48 h, canário de 72 h a
+10/dia e promoção gradual. O observador usa tempo real, contadores duráveis e
+pico do processo. Revisão humana e relatório SQL precisam cobrir a janela e a
+mesma imagem/configuração antes de emitir o recibo de promoção. Testes com
+relógio injetado verificam as regras; não demonstram dias reais de operação.
+
+Release e deploy são workflows manuais restritos a main e environments
+protegidos configurados pelo proprietário. As imagens são implantadas por
+digest. Rollout pausa e audita antes de migrar; readiness valida modo e teto.
+Rollback conserva pausa e dados, usando imagem anterior em cache. Não há
+rollback de banco. [ADR-019](docs/adr/019-lancamento-e-evidencias.md) registra
+as decisões e os limites. O trabalho é entregue para revisão em PR contra main.

@@ -147,7 +147,7 @@ async fn ready(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 async fn status(State(state): State<Arc<AppState>>) -> Response {
     match state.store.paused().await {
         Ok(paused) => Json(serde_json::json!({
-            "paused": paused, "dry_run": state.dry_run, "phase": 6,
+            "paused": paused, "dry_run": state.dry_run, "phase": 7,
             "daily_cap": state.daily_cap,
             "collection_enabled":state.collection_enabled,"clustering_mode":"hash_entities",
             "editorial_enabled":state.editorial_enabled,"imaging_enabled":state.imaging_enabled,

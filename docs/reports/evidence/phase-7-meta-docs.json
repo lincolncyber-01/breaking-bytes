@@ -1,0 +1,57 @@
+{
+  "checked_at": "2026-11-20T17:17:43.943601+00:00",
+  "sources": [
+    {
+      "url": "https://developers.facebook.com/documentation/instagram-platform/content-publishing",
+      "http_status": 200,
+      "sha256": "fc54495003bcb2a69eda3c4b66ac0880e8454e9332b25f5772831d092b7b071b",
+      "excerpts": [
+        "Instagram accounts are limited to 100 API-published posts within a 24-hour moving period. Carousels count as a single post. This limit is enforced on the `POST /&lt;IG_ID&gt;/media_publish` endpoint when attempting to publish a media container. We recommend",
+        "* Accounts are limited to 50 published posts within a 24-hour period. Publishing a carousel counts as a single post.",
+        "To publish a reel, create a container for the media object and include the `media_type` parameter set to `STORIES`.",
+        "**](https://developers.facebook.com/docs/permissions/reference#i) | * `instagram_basic`&lt;br&gt;* `instagram_content_publish` | * `instagram_business_basic`&lt;br&gt;* `instagram_business_content_publish` | * `instagram_basic`&lt;br&gt;* `instagram_content_publish",
+        "`&lt;br&gt;* `pages_read_engagement`&lt;br&gt;&lt;br&gt;If the app user was granted a role on the [Page](https://developers.facebook.com/documentation/instagram-platform/overv",
+        "* `image_url` or `video_url` – Set to the path of the image or video. We will cURL your image using the passed in URL so it must be on a public server.",
+        "           &quot;image_url&quot;:&quot;https://www.example.com/images/bronz-fonz.jpg&quot;",
+        "* `creation_id` set to the container ID, either for a single media container or a carousel container",
+        "           &quot;creation_id&quot;:&quot;&lt;IG_CONTAINER_ID&gt;&quot;",
+        "     -d &quot;image_url=&lt;IMAGE_URL&gt;&quot; \\",
+        "- `FINISHED` — The container and its media object are ready to be published."
+      ]
+    },
+    {
+      "url": "https://developers.facebook.com/documentation/instagram-platform/instagram-graph-api/reference/ig-user/content_publishing_limit",
+      "http_status": 200,
+      "sha256": "7cb968651416ca45d835f5ae05ed32b2a730d363c34f15c399b90bc90918f52c",
+      "excerpts": [
+        "**](https://developers.facebook.com/docs/permissions/reference#i) | * `instagram_basic`&lt;br&gt;* `instagram_content_publish` | * `instagram_business_basic`&lt;br&gt;* `instagram_business_content_publish` | * `instagram_basic`&lt;br&gt;* `instagram_content_publish",
+        "`&lt;br&gt;* `pages_read_engagement`&lt;br&gt;&lt;br&gt;If the app user was granted a role via the Business Manager on the [Page](https://developers.facebook.com/documentation"
+      ]
+    },
+    {
+      "url": "https://developers.facebook.com/documentation/instagram-platform/instagram-graph-api/reference/ig-user/media",
+      "http_status": 200,
+      "sha256": "b204bd2e2afc4661309f1018c35b2b31f6131fb3139d28da4239d6c21fd461f7",
+      "excerpts": [
+        "| `alt_text` | `&lt;IMAGE_ALTERNATIVE_TEXT&gt; ` | **For image posts only.** Alternative text, up to 1000 character, for an image.  Only supported on a single image or image media in a carousel.&lt;br&gt;&lt;br&gt;**Reels and stories are not supported.** |",
+        "&amp;media_type=STORIES",
+        "?media_type=STORIES",
+        "s://developers.facebook.com/docs/facebook-login/permissions#reference-instagram_basic)  &lt;br&gt;[`instagram_content_publish`](https://developers.facebook.com/docs/permissions/reference/instagram_content_publish)  &lt;br&gt;[`pages_read_engagement`](https://develo",
+        "pers.facebook.com/docs/facebook-login/permissions#reference-pages_read_engagement)&lt;br&gt;If the app user was granted a role on the Page via the Business Manager, you will also need one of:&lt;br&gt;&lt;br&gt;[`ads_mana",
+        "?image_url=&lt;IMAGE_URL&gt;",
+        "| `image_url` | `&lt;IMAGE_URL&gt;` | For images only and required for images. The path to the image. We will cURL the image using the URL that you spec",
+        "form/instagram-graph-api/reference/ig-container#fields) field on the IG Container. If its value is `FINISHED`, the video was uploaded successfully.",
+        "  ?image_url=curls//www.example.com/images/bronzed-fonzes.jpg",
+        "s://developers.facebook.com/docs/facebook-login/permissions#reference-instagram_basic)  &lt;br&gt;[`pages_read_engagement`](https://developers.facebook.com/docs/facebook-login/permissions#reference-pages_read_engagement) or [`pages_show_list`](https://developer"
+      ]
+    },
+    {
+      "url": "https://developers.facebook.com/documentation/instagram-platform/instagram-graph-api/reference/ig-user/stories",
+      "http_status": 200,
+      "sha256": "f0c725b9df10c294e6d22f466bb3762e08b6ccd3bd742694513fc8ea2e761335",
+      "excerpts": [
+        "- `pages_read_engagement`"
+      ]
+    }
+  ]
+}

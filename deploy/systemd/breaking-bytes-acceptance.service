@@ -1,0 +1,24 @@
+[Unit]
+Description=Observação temporal do lançamento Breaking Bytes
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=breaking-bytes
+Group=breaking-bytes
+SupplementaryGroups=docker
+WorkingDirectory=/opt/breaking-bytes
+Environment=STORIES_ACCEPTANCE_STAGE=dry_run
+PassEnvironment=ADMIN_TOKEN
+StateDirectory=breaking-bytes
+StateDirectoryMode=0700
+ExecStart=/usr/bin/python3 /opt/breaking-bytes/deploy/scripts/acceptance.py observe ${STORIES_ACCEPTANCE_STAGE} /var/lib/breaking-bytes/acceptance/${STORIES_ACCEPTANCE_STAGE}.json
+Restart=no
+TimeoutStopSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+UMask=0077

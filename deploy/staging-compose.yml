@@ -1,0 +1,31 @@
+name: breaking-bytes-staging
+services:
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: ${STAGING_POSTGRES_PASSWORD:?Defina senha exclusiva do banco staging}
+  migrate:
+    environment:
+      DATABASE_URL: ${STAGING_MIGRATION_DATABASE_URL:?Defina a conexão do owner de staging}
+      ADMIN_TOKEN: ${STAGING_ADMIN_TOKEN:?Defina token administrativo de staging}
+  app:
+    ports: !override ['127.0.0.1:8081:8080']
+    environment:
+      DATABASE_URL: ${STAGING_DATABASE_URL:?Defina a conexão runtime de staging}
+      ADMIN_TOKEN: ${STAGING_ADMIN_TOKEN:?Defina token administrativo de staging}
+      IG_USER_ID: ${STAGING_IG_USER_ID:-}
+      IG_ACCESS_TOKEN: ${STAGING_IG_ACCESS_TOKEN:-}
+      META_APP_ID: ${META_APP_ID:-}
+      META_INSPECTION_TOKEN: ${STAGING_META_INSPECTION_TOKEN:-}
+      FB_PAGE_ID: ${STAGING_FB_PAGE_ID:-}
+      IG_TOKEN_RECEIPT: ${STAGING_IG_TOKEN_RECEIPT:-}
+      R2_ACCOUNT_ID: ${STAGING_R2_ACCOUNT_ID:-}
+      R2_ACCESS_KEY_ID: ${STAGING_R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${STAGING_R2_SECRET_ACCESS_KEY:-}
+      STORIES__STORAGE__BUCKET: ${STAGING_R2_BUCKET:-stories-img-staging}
+      STORIES__INSTAGRAM__DRY_RUN: ${STAGING_DRY_RUN:-true}
+      STORIES__PIPELINE__DAILY_CAP: 10
+      STORIES__PUBLISHING__RESERVED_SLOTS: 2
+      STORIES__OBSERVABILITY__BACKUPS_EXPECTED: 'false'
+      STORIES__OBSERVABILITY__ALERTS_ENABLED: ${STAGING_ALERTS_ENABLED:-false}
+      STORIES__COLLECTION__ENABLED: 'true'
+      STORIES__LLM__ENABLED: 'true'

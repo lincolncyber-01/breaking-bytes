@@ -1,7 +1,8 @@
 # Runbook operacional
 
 Escopo: pipeline implementado até publicação, reconciliação e operação. Consulte
-[matriz de requisitos](requirements.md) e [relatório da fase 6](reports/phase-6.md)
+[matriz de requisitos](requirements.md), [lançamento](launch.md) e
+[relatório de entrega](reports/final.md)
 para separar gates automáticos de aceites externos. Credenciais, observação
 contínua e staging/canário reais continuam pendentes.
 
@@ -65,8 +66,8 @@ URL não comprova ausência de duplicatas semânticas. Nenhum Story será public
 
 ## GitHub e limites da validação
 
-O trabalho está em PRs incrementais empilhados no repositório do proprietário.
-Revise e integre na ordem das dependências; a principal contém a fundação.
+O PR final contra main reúne as fases 2–7 sobre a fundação da fase 1. Revise esse
+diff completo; os PRs incrementais permanecem como histórico de implementação.
 Os checks de cada PR registram o commit efetivamente validado. Não atribua ao
 commit seguinte resultados anteriores quando houver mudanças relevantes.
 
@@ -150,8 +151,9 @@ Nova evidência em RENDERED/QUEUED enfileira verificação e torna o candidato a
 obsoleto. O consumidor schedule/publicação confere estado e
 revisão antes de avançar. Não consuma essa outbox com scripts genéricos.
 
-Os benchmarks da fase 4 medem o renderizador isolado. O p95 passou no ambiente
-medido, mas houve máximo de 413,8 ms; valide a VPS final e monitore percentis.
+Os benchmarks release finais medem o renderizador isolado: p95 53,957 ms para
+arte original e 81,173 ms com imagem de 16 MP no CI da fase 6. Houve máximo de
+413,8 ms na fase 4; valide a VPS final e monitore percentis.
 O teste de caos da fase 5 passou com processos reais e Meta simulada. Memória
 sob carga completa, detecção real, R2 e Meta reais continuam sem aceite.
 Consulte reports/benchmarks.md para medições atuais e seus limites.
@@ -234,3 +236,23 @@ Os timers dependem do provedor de segredos para reapresentar o ambiente em cada
 boot da VPS. Teste esse caminho com uma reinicialização controlada em staging.
 Sem ambiente completo o job falha fechado; os alertas de atraso continuam ativos
 na aplicação, quando configurados. Nunca use down --volumes no projeto de produção.
+
+## Rollout e rollback
+
+Use os scripts de deploy e aceite conforme [launch.md](launch.md). A implantação
+admite somente imagem GHCR por digest, daemon local e snapshot de configuração
+vinculado às identidades Meta/R2. A primeira execução exige dry-run; publicar
+exige recibo da janela completa e revisão. O padrão inicia pausado; --resume
+é uma ação explícita sujeita aos portões do modo real.
+
+Para operação local, control.py status/stats/pause/resume envia ADMIN_TOKEN em
+header, sem argumento secreto. O deploy pausa com auditoria diretamente no banco,
+para o worker anterior, executa migrate e verifica a imagem e readiness antes de
+registrar sucesso. Se falhar, tenta voltar à imagem anterior pausada. Se o banco
+não confirmar pausa, não reinicia automaticamente um worker capaz de publicar.
+
+Rollback explícito reutiliza a imagem anterior em cache, recusa --resume e não
+desfaz migrations. Nunca restaure snapshot para corrigir uma atualização comum;
+isso pode apagar intenções já enviadas. Preserve deployment.json, snapshots e
+imagens anteriores. failed-deployment.json exige investigação com workers
+parados. Novas migrations devem manter compatibilidade com a imagem anterior.

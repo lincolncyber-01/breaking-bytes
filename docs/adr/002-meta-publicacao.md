@@ -34,3 +34,17 @@ e zero duplicatas durante uma partição sem suporte transacional da API.
 
 O schema já distingue uncertain e dry_run. Testes de contrato e caos da fase 5
 deverão demonstrar os casos resolvíveis e o bloqueio seguro dos ambíguos.
+
+## Reconsulta em 20/11/2026
+
+As quatro páginas oficiais acima responderam HTTP 200. O guia servido contém
+simultaneamente os textos “100 API-published posts within a 24-hour moving
+period” e “50 published posts within a 24-hour period”; a inconsistência
+documental permanece. Não se resolve isso adotando um teto fixo mais alto.
+Mantemos consulta de quota_usage/config e falha fechada quando a cota é
+desconhecida. O mesmo material confirma media_type=STORIES, image_url,
+creation_id, FINISHED e as permissões dos dois fluxos. Os trechos e hashes das
+respostas consultadas estão em
+[phase-7-meta-docs.json](../reports/evidence/phase-7-meta-docs.json).
+O teste de caos já passou com SIGKILL real, Postgres real e Meta de contrato;
+validação na conta e App Review continuam pendentes.

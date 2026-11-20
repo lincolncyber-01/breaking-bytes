@@ -28,6 +28,10 @@ fn golden_stories_match_decoded_pixels_and_safe_areas() -> Result<(), Box<dyn st
             .filter(|(a, b)| a != b)
             .count();
         assert_eq!(differences, 0, "snapshot {}", case.name);
+        let expected_layout: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(root.join(format!("{}.json", case.name)))?)?;
+        assert_eq!(serde_json::to_value(&result.layout)?, expected_layout);
+        insta::assert_json_snapshot!(format!("layout_{}", case.name), &result.layout);
         assert!(result.layout.title_lines <= 3);
         assert!((2..=4).contains(&result.layout.summary_lines));
         assert!((57.6..=64.).contains(&result.layout.title_size));

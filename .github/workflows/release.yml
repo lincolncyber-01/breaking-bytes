@@ -1,0 +1,90 @@
+name: Publicar versão verificada
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Versão vMAJOR.MINOR.PATCH igual ao Cargo workspace
+        required: true
+        default: v0.1.0
+permissions:
+  contents: read
+  checks: read
+  packages: write
+concurrency:
+  group: verified-release
+  cancel-in-progress: false
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main' && github.repository == 'lincolncyber-01/breaking-bytes'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    environment: release
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VERSION: ${{ inputs.version }}
+      APP_IMAGE: ghcr.io/lincolncyber-01/breaking-bytes
+      BACKUP_IMAGE: ghcr.io/lincolncyber-01/breaking-bytes-backup
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Exigir versão exata e checks do mesmo commit
+        run: |
+          python3 - <<'PY'
+          import os, re, tomllib
+          from pathlib import Path
+          version = os.environ['VERSION']
+          workspace = tomllib.loads(Path('Cargo.toml').read_text())['workspace']['package']['version']
+          if not re.fullmatch(r'v\d+\.\d+\.\d+', version) or version != 'v' + workspace:
+              raise SystemExit('Versão divergente do workspace.')
+          PY
+          python3 tools/check_release_checks.py
+          python3 tools/registry_tag.py "$APP_IMAGE" "$VERSION"
+          python3 tools/registry_tag.py "$BACKUP_IMAGE" "$VERSION"
+      - name: Construir imagens com procedência do commit
+        run: |
+          docker build --label "org.opencontainers.image.revision=$GITHUB_SHA" --label "org.opencontainers.image.version=$VERSION" -f deploy/Dockerfile -t "$APP_IMAGE:$VERSION" .
+          docker build --label "org.opencontainers.image.revision=$GITHUB_SHA" --label "org.opencontainers.image.version=$VERSION" -f deploy/backup/Dockerfile -t "$BACKUP_IMAGE:$VERSION" .
+      - name: Conferir inventário e auditoria do executável entregue
+        run: |
+          rustup toolchain install 1.100.0 --profile minimal
+          cargo install cargo-audit --version 0.23.0 --locked
+          mkdir -p artifacts
+          release_container=$(docker create "$APP_IMAGE:$VERSION")
+          docker cp "$release_container:/app/stories-tech" artifacts/stories-tech
+          docker rm "$release_container"
+          objcopy --dump-section .dep-v0=artifacts/dependencies.zlib artifacts/stories-tech /tmp/release-inspection
+          python3 tools/check_binary_sbom.py artifacts/dependencies.zlib artifacts/stories-tech.sbom.json
+          cargo audit --deny warnings bin artifacts/stories-tech
+      - name: Varredura final das imagens que serão publicadas
+        run: |
+          curl --fail --silent --show-error --location https://github.com/aquasecurity/trivy/releases/download/v0.76.2/trivy_0.76.2_Linux-64bit.tar.gz -o /tmp/trivy.tar.gz
+          echo 'bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf  /tmp/trivy.tar.gz' | sha256sum --check
+          tar -xzf /tmp/trivy.tar.gz -C /tmp trivy
+          /tmp/trivy image --exit-code 1 --severity HIGH,CRITICAL --scanners vuln,secret --format json --output artifacts/trivy-app.json "$APP_IMAGE:$VERSION"
+          /tmp/trivy image --exit-code 1 --severity HIGH,CRITICAL --scanners vuln,secret --format json --output artifacts/trivy-backup.json "$BACKUP_IMAGE:$VERSION"
+      - name: Publicar tags versionados sem persistir token
+        run: |
+          python3 tools/registry_tag.py "$APP_IMAGE" "$VERSION"
+          python3 tools/registry_tag.py "$BACKUP_IMAGE" "$VERSION"
+          python3 tools/docker_registry.py push "$APP_IMAGE:$VERSION"
+          python3 tools/docker_registry.py push "$BACKUP_IMAGE:$VERSION"
+          docker image inspect "$APP_IMAGE:$VERSION" --format '{{json .RepoDigests}}' > artifacts/app-digests.json
+          docker image inspect "$BACKUP_IMAGE:$VERSION" --format '{{json .RepoDigests}}' > artifacts/backup-digests.json
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          result = {'version': os.environ['VERSION'], 'revision': os.environ['GITHUB_SHA']}
+          for kind in ['app', 'backup']:
+              values = json.loads(Path(f'artifacts/{kind}-digests.json').read_text())
+              prefix = os.environ['APP_IMAGE' if kind == 'app' else 'BACKUP_IMAGE'] + '@sha256:'
+              result[kind + '_image'] = next(value for value in values if value.startswith(prefix))
+          Path('artifacts/release.json').write_text(json.dumps(result, indent=2) + '\n')
+          PY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: verified-release-${{ github.sha }}
+          path: |
+            artifacts/release.json
+            artifacts/stories-tech.sbom.json
+            artifacts/trivy-app.json
+            artifacts/trivy-backup.json

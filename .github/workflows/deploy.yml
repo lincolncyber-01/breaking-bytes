@@ -1,0 +1,71 @@
+name: Implantar na VPS
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Etapa de implantação; rollback conserva pausa
+        type: choice
+        options: [dry_run, canary, promote, rollback]
+        default: dry_run
+        required: true
+      image:
+        description: Referência app_image por digest do release.json; dispensada em rollback
+        required: false
+      cap:
+        description: Teto 10 no canário; promoção gradual 20, 40 ou 80
+        required: true
+        default: '10'
+      resume:
+        description: Retomar após validação; modo real exige recibo completo
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  packages: read
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.repository == 'lincolncyber-01/breaking-bytes'
+    runs-on: [self-hosted, linux, x64, breaking-bytes-production]
+    environment: production
+    timeout-minutes: 30
+    env:
+      DEPLOY_MODE: ${{ inputs.mode }}
+      DEPLOY_IMAGE: ${{ inputs.image }}
+      DEPLOY_CAP: ${{ inputs.cap }}
+      DEPLOY_RESUME: ${{ inputs.resume }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+      IG_USER_ID: ${{ secrets.IG_USER_ID }}
+      IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+      META_APP_ID: ${{ secrets.META_APP_ID }}
+      META_INSPECTION_TOKEN: ${{ secrets.META_INSPECTION_TOKEN }}
+      FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+      IG_TOKEN_RECEIPT: ${{ secrets.IG_TOKEN_RECEIPT }}
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Aplicar rollout no host dedicado
+        run: |
+          python3 - <<'PY'
+          import os, subprocess
+          mode = os.environ['DEPLOY_MODE']
+          command = ['python3', 'deploy/scripts/deploy.py', '--mode', mode, '--cap', os.environ['DEPLOY_CAP']]
+          if mode != 'rollback':
+              command += ['--image', os.environ['DEPLOY_IMAGE']]
+          if mode in {'canary', 'promote'}:
+              command += ['--receipt', '/var/lib/breaking-bytes/acceptance/approved.json']
+          if os.environ['DEPLOY_RESUME'] == 'true':
+              command.append('--resume')
+          subprocess.run(command, check=True, timeout=1500)
+          PY

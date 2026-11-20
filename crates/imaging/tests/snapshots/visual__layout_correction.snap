@@ -1,0 +1,12 @@
+---
+source: crates/imaging/tests/visual.rs
+expression: "&result.layout"
+---
+{
+  "title_size": 64.0,
+  "summary_size": 40.0,
+  "title_lines": 2,
+  "summary_lines": 2,
+  "image_height": 570,
+  "template": "story-v1"
+}

@@ -23,6 +23,7 @@ tiny-skia.workspace = true
 url.workspace = true
 
 [dev-dependencies]
+insta.workspace = true
 criterion.workspace = true
 proptest.workspace = true
 
